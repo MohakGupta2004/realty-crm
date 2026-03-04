@@ -1,3 +1,3 @@
-import workspaceRouter from "./workspace.routes";
+import workspaceRouter from "./workspace.route";
 
 export default workspaceRouter;
