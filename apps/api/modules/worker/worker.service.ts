@@ -27,7 +27,7 @@ export class WorkerService {
 
             const batchPayload = leads.map((lead) => {
                 return {
-                    from: "CRM <noreply@yourdomain.com>",
+                    from: process.env.EMAIL_FROM || "CRM <noreply@yourdomain.com>",
                     to: [lead.email],
                     subject: mailDoc.subject,
                     html: mailDoc.body.replace("{{name}}", lead.name),

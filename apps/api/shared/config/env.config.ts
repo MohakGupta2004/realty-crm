@@ -22,6 +22,22 @@ export const env = {
     // App
     APP_URL: process.env.APP_URL || `http://localhost:${process.env.PORT || 5000}`,
 
+    // CORS
+    CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+
+    // GCP Cloud Tasks
+    GCP_PROJECT_ID: process.env.GCP_PROJECT_ID,
+    GCP_REGION: process.env.GCP_REGION,
+    GCP_QUEUE_NAME: process.env.GCP_QUEUE_NAME,
+
+    // Backend / Worker
+    BACKEND_URL: process.env.BACKEND_URL,
+    INTERNAL_SECRET: process.env.INTERNAL_SECRET,
+
+    // Email (Resend)
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM: process.env.EMAIL_FROM || 'CRM <noreply@yourdomain.com>',
+
     get isProduction() {
         return this.NODE_ENV === "production";
     },
