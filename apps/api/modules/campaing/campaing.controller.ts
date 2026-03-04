@@ -28,12 +28,11 @@ export const createCampaing = async (req: Request, res: Response) => {
             message: "Campaing created successfully",
             data: campaing
         })
-    } catch (error) {
-        console.log(error);
+    } catch (error: any) {
+        console.error(error);
         return res.status(500).json({
             success: false,
-            message: "Failed to create campaing",
-            error: error
+            message: error.message || "Failed to create campaign",
         })
     }
 }
@@ -61,12 +60,11 @@ export const updateCampaing = async (req: Request, res: Response) => {
             message: "Campaing updated successfully",
             data: updatedCampaing
         })
-    } catch (error) {
-        console.log(error);
+    } catch (error: any) {
+        console.error(error);
         return res.status(500).json({
             success: false,
-            message: "Failed to update campaing",
-            error: error
+            message: error.message || "Failed to update campaign",
         })
     }
 }
@@ -88,12 +86,11 @@ export const getCampaings = async (req: Request, res: Response) => {
             message: "Campaings fetched successfully",
             data: campaings
         })
-    } catch (error) {
-        console.log(error);
+    } catch (error: any) {
+        console.error(error);
         return res.status(500).json({
             success: false,
-            message: "Failed to fetch campaings",
-            error: error
+            message: error.message || "Failed to fetch campaigns",
         })
     }
 }
@@ -115,12 +112,11 @@ export const getCampaingDetails = async (req: Request, res: Response) => {
             message: "Campaing details fetched successfully",
             data: campaing
         })
-    } catch (error) {
-        console.log(error);
+    } catch (error: any) {
+        console.error(error);
         return res.status(500).json({
             success: false,
-            message: "Failed to fetch campaing details",
-            error: error
+            message: error.message || "Failed to fetch campaign details",
         })
     }
 }
@@ -142,12 +138,11 @@ export const deleteCampaing = async (req: Request, res: Response) => {
             message: "Campaing deleted successfully",
             data: campaing
         })
-    } catch (error) {
-        console.log(error);
+    } catch (error: any) {
+        console.error(error);
         return res.status(500).json({
             success: false,
-            message: "Failed to delete campaing",
-            error: error
+            message: error.message || "Failed to delete campaign",
         })
     }
 }

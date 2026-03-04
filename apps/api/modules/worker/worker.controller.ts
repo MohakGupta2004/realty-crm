@@ -21,12 +21,11 @@ export const sendMail = async (req: Request, res: Response) => {
             success: true,
             message: "Mail sent successfully",
         })
-    } catch (error) {
-        console.log(error);
+    } catch (error: any) {
+        console.error(error);
         return res.status(500).json({
             success: false,
-            message: "Failed to send mail",
-            error: error
+            message: error.message || "Failed to send mail",
         })
     }
 }
