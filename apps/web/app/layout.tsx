@@ -1,24 +1,21 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import "./globals.css";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
-import { Toaster } from "@/components/ui/sonner";
 
-const fontSans = Inter({
-  variable: "--font-sans",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
-const fontMono = JetBrains_Mono({
-  variable: "--font-mono",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Realty Genie - Real Estate CRM",
-  description:
-    "Modern real estate CRM with pipeline management and team collaboration",
+  title: "RealtyCRM",
+  description: "Your real estate CRM dashboard",
 };
 
 export default function RootLayout({
@@ -27,14 +24,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${fontSans.variable} ${fontMono.variable} antialiased`}>
-        <AuthProvider>
-          <WorkspaceProvider>
-            {children}
-            <Toaster />
-          </WorkspaceProvider>
-        </AuthProvider>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

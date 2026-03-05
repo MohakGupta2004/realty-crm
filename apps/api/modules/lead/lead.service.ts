@@ -45,12 +45,12 @@ export class LeadService {
         const roleInWorkspace = membership.role;
         if (roleInWorkspace === "OWNER") {
             const leadDetails: IleadOverView[] = await Lead.find({ workspaceId })
-                .select("name email phone _id")
+                .select("name email phone status source createdAt updatedAt _id")
                 .lean();
             return leadDetails;
         }
         const leadDetails: IleadOverView[] = await Lead.find({ workspaceId, realtorId })
-            .select("name email phone _id")
+            .select("name email phone status source createdAt updatedAt _id")
             .lean();
         return leadDetails;
     }

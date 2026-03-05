@@ -19,8 +19,11 @@ export const env = {
     process.env.GOOGLE_REDIRECT_URI ||
     "http://localhost:5000/auth/google/callback",
 
-  // App - Frontend URL for redirects
+  // App - Backend's own URL
   APP_URL: process.env.APP_URL || "http://localhost:3000",
+
+  // Frontend URL for OAuth redirects
+  FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:5000",
 
   // CORS
   CORS_ORIGIN: process.env.CORS_ORIGIN || "*",

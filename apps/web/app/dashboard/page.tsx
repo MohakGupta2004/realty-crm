@@ -1,67 +1,83 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import { DashboardSkeleton } from "@/components/skeletons/DashboardSkeleton";
-import Sidebar from "@/components/layout/sidebar";
-import Topbar from "@/components/layout/topbar";
-import PeopleTable from "@/components/people-table";
-import { Button } from "@/components/ui/button";
+import Sidebar from "@/components/dashboard/Sidebar";
+import LeadsView from "@/components/dashboard/LeadsView";
+import { getToken, clearToken, API_BASE_URL } from "@/lib/auth";
+
+// ── Dashboard Page ────────────────────────────────────────────────────
+// Protected page:
+//   No token           → redirect to "/" (login)
+//   Token but no wksp  → redirect to "/" (workspace creation)
+//   Token + workspace  → show dashboard
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const peopleTableRef = useRef<{ refresh: () => void }>(null);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceId, setWorkspaceId] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const handleLeadCreated = useCallback(() => {
-    // Trigger refresh
-    setRefreshTrigger((prev) => prev + 1);
-  }, []);
+  useEffect(() => {
+    const token = getToken();
 
-  // While auth state is being determined, show skeleton
-  if (isLoading) {
-    return <DashboardSkeleton />;
-  }
+    if (!token) {
+      router.replace("/");
+      return;
+    }
 
-  // If not authenticated, show skeleton with auth overlay
-  if (!isAuthenticated) {
+    async function fetchWorkspace() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/workspace`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.status === 401) {
+          // Token expired / invalid → clear and go to login
+          clearToken();
+          router.replace("/");
+          return;
+        }
+
+        if (!res.ok) {
+          router.replace("/");
+          return;
+        }
+
+        const data = await res.json();
+
+        if (!data || !data.name) {
+          // Authenticated but no workspace → go home for workspace step
+          router.replace("/");
+          return;
+        }
+
+        setWorkspaceName(data.name);
+        setWorkspaceId(data._id);
+      } catch {
+        router.replace("/");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchWorkspace();
+  }, [router]);
+
+  if (loading) {
     return (
-      <div className="relative">
-        <DashboardSkeleton />
-        {/* Auth overlay */}
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
-            <h2 className="text-2xl font-bold mb-2">Sign in required</h2>
-            <p className="text-muted-foreground mb-6">
-              Please sign in to view your dashboard and manage your leads.
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Button onClick={() => router.push("/auth/login")}>
-                Sign in
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push("/auth/signup")}
-              >
-                Create account
-              </Button>
-            </div>
-          </div>
-        </div>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <p className="animate-pulse text-sm text-muted-foreground">
+          Loading workspace…
+        </p>
       </div>
     );
   }
 
-  // Authenticated - show real dashboard
   return (
-    <div className="flex h-screen bg-[#f1f1f1]">
-      <Sidebar />
-      <div className="flex flex-col flex-1">
-        <Topbar onLeadCreated={handleLeadCreated} />
-        <PeopleTable key={refreshTrigger} />
-      </div>
+    <div className="flex h-screen w-full overflow-hidden bg-background">
+      <Sidebar workspaceName={workspaceName} />
+      <LeadsView workspaceId={workspaceId} />
     </div>
   );
 }

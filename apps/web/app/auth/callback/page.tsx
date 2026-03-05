@@ -1,78 +1,42 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import { Loader2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { setToken } from "@/lib/auth";
 
-function AuthCallbackContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { refreshToken } = useAuth();
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handleCallback = async () => {
-      // Check for error from backend
-      const errorMsg = searchParams.get("error");
-      if (errorMsg) {
-        setError(decodeURIComponent(errorMsg));
-        setTimeout(() => router.push("/auth/login"), 3000);
-        return;
-      }
-
-      // The backend should have set the refresh token as HTTP-only cookie
-      // We need to get the access token - either from URL param or by calling refresh
-      const accessToken = searchParams.get("token");
-
-      if (accessToken) {
-        localStorage.setItem("accessToken", accessToken);
-        router.push("/dashboard");
-      } else {
-        // Try to refresh to get the token
-        const refreshed = await refreshToken();
-        if (refreshed) {
-          router.push("/dashboard");
-        } else {
-          setError("Authentication failed. Please try again.");
-          setTimeout(() => router.push("/auth/login"), 3000);
-        }
-      }
-    };
-
-    handleCallback();
-  }, [router, searchParams, refreshToken]);
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4">
-        <Alert variant="destructive" className="max-w-md">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-muted/50">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="mt-4 text-muted-foreground">Completing sign in...</p>
-    </div>
-  );
-}
+// ── Auth Callback Page ────────────────────────────────────────────────
+// Google OAuth redirects here after login:
+//   /auth/callback?token=xxx   → success
+//   /auth/callback?error=xxx   → failure
+//
+// On success we store the token and send the user to the home page,
+// which will then show the workspace-creation step.
 
 export default function AuthCallbackPage() {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  useEffect(() => {
+    const token = params.get("token");
+    const error = params.get("error");
+
+    if (token) {
+      // Store the access token and go home
+      setToken(token);
+      router.replace("/");
+    } else if (error) {
+      console.error("Auth error:", error);
+      // Go back to login so the user can retry
+      router.replace("/");
+    } else {
+      // No token and no error – shouldn't happen, go home
+      router.replace("/");
+    }
+  }, [params, router]);
+
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex flex-col items-center justify-center bg-muted/50">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
-      }
-    >
-      <AuthCallbackContent />
-    </Suspense>
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <p className="animate-pulse text-muted-foreground">Signing you in…</p>
+    </div>
   );
 }
