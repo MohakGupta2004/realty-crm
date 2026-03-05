@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { env } from "./shared/config/env.config";
 import authModule from "./modules/auth/auth.module";
 import userModule from "./modules/user/user.module";
 import workspaceModule from "./modules/workspace/workspace.module";
@@ -15,10 +16,13 @@ import workerModule from "./modules/worker/worker.module";
 const app = express();
 
 // ── Global Middleware ─────────────────────────────────────────────────
+const corsOrigin = env.CORS_ORIGIN === "*" ? true : env.CORS_ORIGIN.split(",");
 app.use(
   cors({
-    origin: "*",
+    origin: corsOrigin,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 app.use(express.json({ limit: "1mb" }));
