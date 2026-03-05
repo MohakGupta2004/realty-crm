@@ -43,3 +43,14 @@ export interface ICampaignStepCreate {
     delayDays: number;
     stepOrder: number;
 }
+
+export interface ICampaignStart {
+    campaignId: string;
+    leads: ILead[];
+}
+
+export interface ILead {
+    leadId: mongoose.Schema.Types.ObjectId;
+    email: string;
+    name: string;
+}
