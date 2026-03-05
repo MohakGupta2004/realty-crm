@@ -1,15 +1,13 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function Navbar() {
   return (
     <nav className="border-b">
       <div className="max-w-7xl mx-auto flex items-center justify-between py-5 px-6">
-
-        <div className="text-xl font-bold">
-          Realty Genie
-        </div>
+        <div className="text-xl font-bold">Realty Genie</div>
 
         <div className="flex gap-8 text-sm text-muted-foreground">
           <a href="#">Product</a>
@@ -18,9 +16,10 @@ export default function Navbar() {
           <a href="#">Community</a>
         </div>
 
-        <Button >Get Started</Button>
-
+        <Link href="/auth/signup">
+          <Button>Get Started</Button>
+        </Link>
       </div>
     </nav>
-  )
+  );
 }

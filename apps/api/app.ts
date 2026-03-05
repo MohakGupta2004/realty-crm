@@ -1,30 +1,36 @@
-import express from 'express'
-import cors from 'cors'
+import express from "express";
+import cors from "cors";
 import cookieParser from "cookie-parser";
-import authModule from './modules/auth/auth.module'
-import userModule from './modules/user/user.module'
-import workspaceModule from './modules/workspace/workspace.module'
-import membershipModule from './modules/memberships/memberships.module'
-import leadModule from './modules/lead/lead.module'
-import pipelineModule from './modules/pipeline/pipeline.module'
-import pipelineStageModule from './modules/pipelineStage/pipelineStage.module'
-import mailModule from './modules/mail/mail.module'
-import campaingModule from './modules/campaing/campaing.module'
-import workerModule from './modules/worker/worker.module'
+import { env } from "./shared/config/env.config";
+import authModule from "./modules/auth/auth.module";
+import userModule from "./modules/user/user.module";
+import workspaceModule from "./modules/workspace/workspace.module";
+import membershipModule from "./modules/memberships/memberships.module";
+import leadModule from "./modules/lead/lead.module";
+import pipelineModule from "./modules/pipeline/pipeline.module";
+import pipelineStageModule from "./modules/pipelineStage/pipelineStage.module";
+import mailModule from "./modules/mail/mail.module";
+import campaingModule from "./modules/campaing/campaing.module";
+import workerModule from "./modules/worker/worker.module";
 
 const app = express();
 
 // ── Global Middleware ─────────────────────────────────────────────────
-app.use(cors({
-    origin: '*',
+const corsOrigin = env.CORS_ORIGIN === "*" ? true : env.CORS_ORIGIN.split(",");
+app.use(
+  cors({
+    origin: corsOrigin,
     credentials: true,
-}));
-app.use(express.json({ limit: '1mb' }));
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
+app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
 // ── Health Check ──────────────────────────────────────────────────────
 app.get("/api/v1/health", (_req, res) => {
-    res.status(200).json({ status: "healthy" });
+  res.status(200).json({ status: "healthy" });
 });
 
 // ── Module Routes ─────────────────────────────────────────────────────

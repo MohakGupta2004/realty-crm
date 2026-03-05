@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-// import { AuthProvider } from "@/contexts/AuthContext";
-// import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
-// import { ThemeProvider } from "@/contexts/ThemeContext";
-// import { Toaster } from "@/components/ui/sonner";
-// import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
+import { Toaster } from "@/components/ui/sonner";
 
 const fontSans = Inter({
   variable: "--font-sans",
@@ -30,19 +28,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${fontSans.variable} ${fontMono.variable} antialiased`}
-      >
-        {/* <ThemeProvider>
-          <AuthProvider>
-            <WorkspaceProvider>
-              <TooltipProvider> */}
-                {children}
-                {/* <Toaster />
-              </TooltipProvider>
-            </WorkspaceProvider>
-          </AuthProvider>
-        </ThemeProvider> */}
+      <body className={`${fontSans.variable} ${fontMono.variable} antialiased`}>
+        <AuthProvider>
+          <WorkspaceProvider>
+            {children}
+            <Toaster />
+          </WorkspaceProvider>
+        </AuthProvider>
       </body>
     </html>
   );
