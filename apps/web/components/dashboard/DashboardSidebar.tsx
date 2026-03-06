@@ -1,7 +1,7 @@
 import {
   Search,
   Settings,
-  Users,
+  User,
   Building2,
   Target,
   CheckSquare,
@@ -17,7 +17,7 @@ const navItems = [
 ];
 
 const workspaceItems = [
-  { icon: Users, label: "People" },
+  { icon: User, label: "People" },
   { icon: Building2, label: "Companies" },
   { icon: Target, label: "Opportunities" },
   { icon: CheckSquare, label: "Tasks" },

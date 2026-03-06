@@ -24,6 +24,7 @@ interface Lead {
   email: string;
   phone: string;
   source: string;
+  city?: string;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -34,15 +35,57 @@ interface LeadsViewProps {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────
-const STATUSES = ["new", "contacted", "converted", "lost"] as const;
+// Status styles are now dynamic — colors are generated from the status string hash
+const STATUS_COLOR_PALETTE = [
+  { bg: "rgba(59,130,246,0.18)", text: "#60a5fa", dot: "#3b82f6" }, // blue
+  { bg: "rgba(245,158,11,0.18)", text: "#fbbf24", dot: "#f59e0b" }, // amber
+  { bg: "rgba(16,185,129,0.18)", text: "#34d399", dot: "#10b981" }, // emerald
+  { bg: "rgba(139,92,246,0.18)", text: "#a78bfa", dot: "#8b5cf6" }, // violet
+  { bg: "rgba(236,72,153,0.18)", text: "#f472b6", dot: "#ec4899" }, // pink
+  { bg: "rgba(6,182,212,0.18)", text: "#22d3ee", dot: "#06b6d4" }, // cyan
+  { bg: "rgba(249,115,22,0.18)", text: "#fb923c", dot: "#f97316" }, // orange
+  { bg: "rgba(168,85,247,0.18)", text: "#c084fc", dot: "#a855f7" }, // purple
+  { bg: "rgba(34,197,94,0.18)", text: "#4ade80", dot: "#22c55e" }, // green
+  { bg: "rgba(239,68,68,0.18)", text: "#f87171", dot: "#ef4444" }, // red
+];
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
-  {
-    new: { bg: "rgba(59,130,246,0.15)", text: "#60a5fa", dot: "#3b82f6" },
-    contacted: { bg: "rgba(245,158,11,0.15)", text: "#fbbf24", dot: "#f59e0b" },
-    converted: { bg: "rgba(16,185,129,0.15)", text: "#34d399", dot: "#10b981" },
-    lost: { bg: "rgba(239,68,68,0.15)", text: "#f87171", dot: "#ef4444" },
-  };
+// Map stages directly if they match default pipeline stages, otherwise fallback to hash
+const DEFAULT_STAGE_INDEXES: Record<string, number> = {
+  // Buyer
+  "new inquiry": 0,
+  contacted: 1,
+  qualified: 2,
+  "active search": 3,
+  "showing scheduled": 4,
+  "offer preparing": 5,
+  "offer submitted": 6,
+  "under contract": 7, // Shared
+  "closed won": 8, // Shared
+  lost: 9, // Shared
+  // Seller
+  "consultation scheduled": 1, // Skip 0 since it's "New Inquiry"
+  "listing agreement signed": 2,
+  "property live": 3,
+  "offer received": 4,
+};
+
+function getStatusStyle(status: string) {
+  if (!status)
+    return { bg: "rgba(255,255,255,0.1)", text: "#999", dot: "#666" };
+
+  const normalized = status.toLowerCase();
+
+  // If it's a known default stage, use its exact position color
+  if (normalized in DEFAULT_STAGE_INDEXES) {
+    return STATUS_COLOR_PALETTE[DEFAULT_STAGE_INDEXES[normalized]];
+  }
+
+  let hash = 0;
+  for (let i = 0; i < status.length; i++) {
+    hash = status.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return STATUS_COLOR_PALETTE[Math.abs(hash) % STATUS_COLOR_PALETTE.length];
+}
 
 const DEFAULT_STATUS_STYLE = {
   bg: "rgba(255,255,255,0.1)",
@@ -87,6 +130,7 @@ const TABLE_COLUMNS = [
   { key: "name", label: "Name", icon: Users },
   { key: "email", label: "Email", icon: Mail },
   { key: "phone", label: "Phone", icon: Phone },
+  { key: "city", label: "City", icon: Globe }, // Use Globe for City/Location
   { key: "status", label: "Status", icon: Tag },
   { key: "source", label: "Source", icon: Globe },
   { key: "createdAt", label: "Created", icon: Clock },
@@ -98,6 +142,9 @@ const TABLE_COLUMNS = [
 export default function LeadsView({ workspaceId }: LeadsViewProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [showNewForm, setShowNewForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -113,6 +160,7 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
   const [newEmail, setNewEmail] = useState("");
   const [newCountryCode, setNewCountryCode] = useState("+91");
   const [newPhone, setNewPhone] = useState("");
+  const [newCity, setNewCity] = useState("");
   const [newSource, setNewSource] = useState("");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -171,6 +219,7 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
           name: newName.trim(),
           email: newEmail.trim(),
           phone: fullPhone,
+          city: newCity.trim(),
           source: newSource.trim() || "manual",
           workspaceId,
         }),
@@ -183,6 +232,7 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
       setNewName("");
       setNewEmail("");
       setNewPhone("");
+      setNewCity("");
       setNewSource("");
       setShowNewForm(false);
       fetchLeads();
@@ -221,6 +271,46 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
     setSelectedLead(selectedLead?._id === lead._id ? null : lead);
   }
 
+  // ── Selection & Bulk Ops ──────────────────────────────────────────
+  function toggleAll() {
+    if (selectedLeadIds.size === leads.length) {
+      setSelectedLeadIds(new Set());
+    } else {
+      setSelectedLeadIds(new Set(leads.map((l) => l._id)));
+    }
+  }
+
+  function toggleLead(id: string) {
+    const next = new Set(selectedLeadIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedLeadIds(next);
+  }
+
+  async function handleBulkDelete() {
+    if (
+      !confirm(`Are you sure you want to delete ${selectedLeadIds.size} leads?`)
+    )
+      return;
+
+    setSubmitting(true);
+    try {
+      // Create a sequential delete queue
+      for (const id of selectedLeadIds) {
+        await fetch(`${API_BASE_URL}/lead/details/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+      setSelectedLeadIds(new Set());
+      fetchLeads();
+    } catch {
+      alert("Failed to delete some leads.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   // ══════════════════════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════════════════════
@@ -234,14 +324,27 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
             <Users className="h-4 w-4 text-muted-foreground" />
             <h1 className="text-sm font-semibold text-foreground">Leads</h1>
           </div>
-          <Button
-            size="sm"
-            onClick={() => setShowNewForm(true)}
-            className="h-7 gap-1.5 rounded-md px-3 text-xs"
-          >
-            <Plus className="h-3 w-3" />
-            New record
-          </Button>
+          <div className="flex items-center gap-2">
+            {selectedLeadIds.size > 0 && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={submitting}
+                className="h-7 gap-1.5 rounded-md px-3 text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30"
+              >
+                Delete Selected ({selectedLeadIds.size})
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={() => setShowNewForm(true)}
+              className="h-7 gap-1.5 rounded-md px-3 text-xs"
+            >
+              <Plus className="h-3 w-3" />
+              New record
+            </Button>
+          </div>
         </div>
 
         {/* Sub-header: count */}
@@ -256,6 +359,16 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
           <table className="w-full text-left text-[13px]">
             <thead>
               <tr className="border-b border-white/[0.06]">
+                <th className="w-10 px-4 py-2.5">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 rounded appearance-none border border-gray-400 bg-transparent checked:bg-blue-500"
+                    checked={
+                      leads.length > 0 && selectedLeadIds.size === leads.length
+                    }
+                    onChange={toggleAll}
+                  />
+                </th>
                 {TABLE_COLUMNS.map((col) => (
                   <th
                     key={col.key}
@@ -274,11 +387,29 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
               {leads.map((lead) => (
                 <tr
                   key={lead._id}
-                  onClick={() => handleRowClick(lead)}
+                  onClick={(e) => {
+                    // Prevent row click if clicking checkbox or editable cells
+                    if (
+                      (e.target as HTMLElement).tagName.toLowerCase() ===
+                      "input"
+                    )
+                      return;
+                    handleRowClick(lead);
+                  }}
                   className={`cursor-pointer border-b border-white/[0.04] transition-colors hover:bg-white/[0.03] ${
                     selectedLead?._id === lead._id ? "bg-white/[0.05]" : ""
-                  }`}
+                  } ${selectedLeadIds.has(lead._id) ? "bg-blue-500/[0.02]" : ""}`}
                 >
+                  {/* Select */}
+                  <td className="px-4 py-2.5 w-10">
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5 rounded appearance-none border border-gray-400 bg-transparent checked:bg-blue-500"
+                      checked={selectedLeadIds.has(lead._id)}
+                      onChange={() => toggleLead(lead._id)}
+                    />
+                  </td>
+
                   {/* Name */}
                   <td className="px-4 py-2.5">
                     <EditableNameCell
@@ -331,6 +462,24 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
                     />
                   </td>
 
+                  {/* City */}
+                  <td className="px-4 py-2.5">
+                    <EditableTextCell
+                      value={lead.city || ""}
+                      editing={
+                        editingCell?.leadId === lead._id &&
+                        editingCell?.field === "city"
+                      }
+                      editValue={editValue}
+                      onStart={() =>
+                        startEditing(lead._id, "city", lead.city || "")
+                      }
+                      onChange={setEditValue}
+                      onSave={(v) => saveInlineEdit(lead._id, "city", v)}
+                      onCancel={() => setEditingCell(null)}
+                    />
+                  </td>
+
                   {/* Status */}
                   <td
                     className="px-4 py-2.5"
@@ -370,7 +519,7 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
               {/* ── "+ Add New" row — appears BELOW existing rows ─── */}
               {!showNewForm ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={8}>
                     <button
                       onClick={() => setShowNewForm(true)}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] text-muted-foreground/60 transition-colors hover:bg-white/[0.02] hover:text-muted-foreground"
@@ -382,6 +531,8 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
                 </tr>
               ) : (
                 <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                  {/* Checkbox Placeholder */}
+                  <td className="px-4 py-2 w-10"></td>
                   {/* Name */}
                   <td className="px-4 py-2">
                     <Input
@@ -418,6 +569,16 @@ export default function LeadsView({ workspaceId }: LeadsViewProps) {
                         className="h-8 flex-1 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
                       />
                     </div>
+                  </td>
+                  {/* City */}
+                  <td className="px-4 py-2">
+                    <Input
+                      placeholder="City"
+                      value={newCity}
+                      onChange={(e) => setNewCity(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                      className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
+                    />
                   </td>
                   {/* Status (defaults to new) */}
                   <td className="px-4 py-2">
@@ -661,7 +822,7 @@ function EditableTextCell({
   );
 }
 
-// ── Status dropdown ───────────────────────────────────────────────────
+// ── Status badge (now driven by pipeline stage name) ──────────────────
 function StatusDropdown({
   status,
   onChange,
@@ -669,65 +830,23 @@ function StatusDropdown({
   status: string;
   onChange: (s: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  // close on click outside
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    }
-    if (open) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  const style = getStatusStyle(status);
 
   return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize transition-colors"
+    <div className="relative inline-block">
+      <span
+        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium"
         style={{
-          backgroundColor: (
-            STATUS_STYLES[(status || "new").toLowerCase()] ||
-            DEFAULT_STATUS_STYLE
-          ).bg,
-          color: (
-            STATUS_STYLES[(status || "new").toLowerCase()] ||
-            DEFAULT_STATUS_STYLE
-          ).text,
+          backgroundColor: style.bg,
+          color: style.text,
         }}
       >
-        {status}
-        <ChevronDown className="h-2.5 w-2.5 opacity-60" />
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-32 rounded-lg border border-white/[0.08] bg-[#1a1a1a] py-1 shadow-xl">
-          {STATUSES.map((s) => (
-            <button
-              key={s}
-              onClick={() => {
-                onChange(s);
-                setOpen(false);
-              }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] capitalize text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground"
-            >
-              {s === (status || "new").toLowerCase() && (
-                <Check className="h-3 w-3 text-foreground" />
-              )}
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{
-                  backgroundColor: (STATUS_STYLES[s] || DEFAULT_STATUS_STYLE)
-                    .dot,
-                }}
-              />
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
+        <span
+          className="inline-block h-2 w-2 rounded-full"
+          style={{ backgroundColor: style.dot }}
+        />
+        {status || "New Inquiry"}
+      </span>
     </div>
   );
 }

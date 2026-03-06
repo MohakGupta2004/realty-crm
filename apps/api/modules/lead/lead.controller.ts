@@ -7,9 +7,9 @@ import { LeadService } from "./lead.service";
 export async function createLead(req: Request, res: Response) {
     try {
         const authReq = req as AuthenticatedRequest;
-        const { name, email, phone, source, workspaceId, pipelineId, stageId, type } = authReq.body;
+        const { name, email, phone, source, city, workspaceId, pipelineId, stageId, type } = authReq.body;
         const realtorId = authReq.user.id;
-        const lead = await LeadService.createLead({ name, email, phone, source, realtorId, workspaceId, pipelineId, stageId, type });
+        const lead = await LeadService.createLead({ name, email, phone, source, city, realtorId, workspaceId, pipelineId, stageId, type });
         res.status(201).json({ lead });
     } catch (error: any) {
         res.status(400).json({ message: error.message || "Failed to create lead" });
@@ -51,8 +51,8 @@ export async function updateLead(req: Request, res: Response) {
         const authReq = req as AuthenticatedRequest;
         const leadId = req.params.id as string;
         const realtorId = authReq.user.id;
-        const { name, email, phone, source, pipelineId, stageId, status } = req.body;
-        const lead = await LeadService.updateLead(realtorId, leadId, { name, email, phone, source, pipelineId, stageId, status });
+        const { name, email, phone, source, city, pipelineId, stageId, status } = req.body;
+        const lead = await LeadService.updateLead(realtorId, leadId, { name, email, phone, source, city, pipelineId, stageId, status });
         if (!lead) {
             res.status(404).json({ message: "Lead not found" });
             return;

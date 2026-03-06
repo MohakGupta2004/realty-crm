@@ -55,11 +55,15 @@ export class PipelineStageService {
         return this.getStagesByPipeline(pipelineId);
     }
 
-    /** Move a lead to a different stage (Kanban card drag) */
+    /** Move a lead to a different stage (Kanban card drag) — also syncs lead.status to stage name */
     async moveLeadToStage(leadId: string, targetStageId: string) {
         const stage = await PipelineStage.findById(targetStageId);
         if (!stage) return null;
-        const lead = await Lead.findByIdAndUpdate(leadId, { stageId: targetStageId }, { new: true });
+        const lead = await Lead.findByIdAndUpdate(
+            leadId,
+            { stageId: targetStageId, status: stage.name },
+            { new: true }
+        );
         return lead;
     }
 

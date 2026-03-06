@@ -18,6 +18,9 @@ const leadSchema = new mongoose.Schema<ILead>({
         type: String,
         required: true
     },
+    city: {
+        type: String,
+    },
     workspaceId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Workspace",
@@ -43,8 +46,7 @@ const leadSchema = new mongoose.Schema<ILead>({
     },
     status: {
         type: String,
-        enum: ["new", "contacted", "converted", "lost"],
-        default: "new"
+        default: "New Inquiry"
     }
 }, {
     timestamps: true,

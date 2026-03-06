@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, ChevronDown, LogOut, Sun, Moon } from "lucide-react";
+import { Users, ChevronDown, LogOut, Sun, Moon, Kanban } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -15,11 +15,23 @@ import { useTheme } from "@/components/providers/ThemeProvider";
 // ── Props ─────────────────────────────────────────────────────────────
 interface SidebarProps {
   workspaceName: string;
+  activeView: "leads" | "pipeline";
+  onViewChange: (view: "leads" | "pipeline") => void;
 }
+
+// ── Nav items config ──────────────────────────────────────────────────
+const NAV_ITEMS = [
+  { key: "leads" as const, label: "Leads", icon: Users },
+  { key: "pipeline" as const, label: "Pipeline", icon: Kanban },
+] as const;
 
 // ── Sidebar Component ─────────────────────────────────────────────────
 
-export default function Sidebar({ workspaceName }: SidebarProps) {
+export default function Sidebar({
+  workspaceName,
+  activeView,
+  onViewChange,
+}: SidebarProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
 
@@ -76,10 +88,20 @@ export default function Sidebar({ workspaceName }: SidebarProps) {
 
       {/* ── Nav items ─────────────────────────────────────────────── */}
       <nav className="flex flex-col gap-0.5 px-2">
-        <button className="flex items-center gap-3 rounded-lg bg-white/[0.06] px-3 py-1.5 text-[13px] font-medium text-sidebar-foreground transition-colors hover:bg-white/[0.08]">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span>Leads</span>
-        </button>
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => onViewChange(item.key)}
+            className={`flex items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
+              activeView === item.key
+                ? "bg-white/[0.06] text-sidebar-foreground"
+                : "text-muted-foreground hover:bg-white/[0.04] hover:text-sidebar-foreground"
+            }`}
+          >
+            <item.icon className="h-4 w-4" />
+            <span>{item.label}</span>
+          </button>
+        ))}
       </nav>
 
       <div className="flex-1" />
