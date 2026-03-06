@@ -2,7 +2,7 @@
 // Centralised constants and helpers for auth.
 // Uses localStorage so the token survives page refreshes.
 
-export const API_BASE_URL = "http://localhost:3000/api/v1";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // ── Token management ──────────────────────────────────────────────────
 
@@ -27,4 +27,28 @@ export function clearToken(): void {
 /** Check whether a token exists */
 export function isLoggedIn(): boolean {
   return !!getToken();
+}
+
+/**
+ * Attempt to refresh the access token using the httpOnly refresh cookie.
+ * Returns `true` if a new access token was obtained, `false` otherwise.
+ */
+export async function tryRefreshToken(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include", // sends the httpOnly refreshToken cookie
+    });
+
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    if (data?.accessToken) {
+      setToken(data.accessToken);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }

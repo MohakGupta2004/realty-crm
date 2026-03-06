@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import DashboardTable from "@/components/dashboard/DashboardTable";
 import AuthModal from "@/components/auth/LoginModal";
-import { isLoggedIn, getToken, API_BASE_URL } from "@/lib/auth";
+import {
+  isLoggedIn,
+  getToken,
+  clearToken,
+  tryRefreshToken,
+  API_BASE_URL,
+} from "@/lib/auth";
 
 // ── Auth state machine ───────────────────────────────────────────────
 // "checking"       → loading spinner while we figure things out
@@ -19,6 +25,14 @@ export default function Home() {
   const [authState, setAuthState] = useState<AuthState>("checking");
 
   useEffect(() => {
+    /** Fetch workspace with the current access token */
+    async function fetchWorkspace(): Promise<Response> {
+      return fetch(`${API_BASE_URL}/workspace`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "include",
+      });
+    }
+
     async function resolve() {
       // 1. No token → show login
       if (!isLoggedIn()) {
@@ -28,25 +42,44 @@ export default function Home() {
 
       // 2. Has token → check for workspace
       try {
-        const res = await fetch(`${API_BASE_URL}/workspace`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
+        let res = await fetchWorkspace();
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.name) {
-            // Has workspace → go to dashboard
-            setAuthState("ready");
-            router.replace("/dashboard");
+        // 2a. Token expired / invalid → try to refresh
+        if (res.status === 401) {
+          const refreshed = await tryRefreshToken();
+          if (refreshed) {
+            // Got a new access token — retry
+            res = await fetchWorkspace();
+          } else {
+            // Refresh also failed → send to login
+            clearToken();
+            setAuthState("unauthenticated");
             return;
           }
         }
 
-        // Token valid but no workspace yet
+        // 2b. Still a non-401 error after potential refresh
+        if (!res.ok) {
+          // Server error or other issue — don't show workspace form
+          clearToken();
+          setAuthState("unauthenticated");
+          return;
+        }
+
+        // 2c. Success — check if workspace exists
+        const data = await res.json();
+        if (data?.name) {
+          setAuthState("ready");
+          router.replace("/dashboard");
+          return;
+        }
+
+        // Token is valid but no workspace yet
         setAuthState("needs-workspace");
       } catch {
-        // API error — treat as needing workspace
-        setAuthState("needs-workspace");
+        // Network error (server down, CORS, etc.) — show login
+        clearToken();
+        setAuthState("unauthenticated");
       }
     }
 

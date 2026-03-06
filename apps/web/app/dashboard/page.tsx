@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
 import LeadsView from "@/components/dashboard/LeadsView";
-import { getToken, clearToken, API_BASE_URL } from "@/lib/auth";
+import {
+  getToken,
+  clearToken,
+  tryRefreshToken,
+  API_BASE_URL,
+} from "@/lib/auth";
 
 // ── Dashboard Page ────────────────────────────────────────────────────
 // Protected page:
@@ -26,20 +31,31 @@ export default function DashboardPage() {
       return;
     }
 
+    async function doFetch(authToken: string): Promise<Response> {
+      return fetch(`${API_BASE_URL}/workspace`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+        credentials: "include",
+      });
+    }
+
     async function fetchWorkspace() {
       try {
-        const res = await fetch(`${API_BASE_URL}/workspace`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        let res = await doFetch(token!);
 
         if (res.status === 401) {
-          // Token expired / invalid → clear and go to login
-          clearToken();
-          router.replace("/");
-          return;
+          // Token expired — try to refresh
+          const refreshed = await tryRefreshToken();
+          if (refreshed) {
+            res = await doFetch(getToken()!);
+          } else {
+            clearToken();
+            router.replace("/");
+            return;
+          }
         }
 
         if (!res.ok) {
+          clearToken();
           router.replace("/");
           return;
         }
@@ -55,6 +71,7 @@ export default function DashboardPage() {
         setWorkspaceName(data.name);
         setWorkspaceId(data._id);
       } catch {
+        clearToken();
         router.replace("/");
       } finally {
         setLoading(false);
