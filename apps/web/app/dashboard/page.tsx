@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
 import LeadsView from "@/components/dashboard/LeadsView";
+import PipelineView from "@/components/dashboard/PipelineView";
 import {
   getToken,
   clearToken,
@@ -22,6 +23,7 @@ export default function DashboardPage() {
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceId, setWorkspaceId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState<"leads" | "pipeline">("leads");
 
   useEffect(() => {
     const token = getToken();
@@ -93,8 +95,16 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <Sidebar workspaceName={workspaceName} />
-      <LeadsView workspaceId={workspaceId} />
+      <Sidebar
+        workspaceName={workspaceName}
+        activeView={activeView}
+        onViewChange={setActiveView}
+      />
+      {activeView === "leads" ? (
+        <LeadsView workspaceId={workspaceId} />
+      ) : (
+        <PipelineView workspaceId={workspaceId} />
+      )}
     </div>
   );
 }

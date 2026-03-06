@@ -5,6 +5,7 @@ export interface ILead {
     email: string;
     phone: string;
     source: string;
+    city?: string;
     status: string;
     realtorId: Types.ObjectId;
     workspaceId: Types.ObjectId;
@@ -18,6 +19,7 @@ export interface ILeadCreate {
     email: string;
     phone: string;
     source: string;
+    city?: string;
     realtorId: Types.ObjectId | string;
     workspaceId: Types.ObjectId | string;
     pipelineId?: Types.ObjectId | string;
@@ -38,6 +40,7 @@ export interface ILeadUpdate {
     email?: string;
     phone?: string;
     source?: string;
+    city?: string;
     realtorId?: Types.ObjectId | string;
     pipelineId?: Types.ObjectId | string;
     stageId?: Types.ObjectId | string;
