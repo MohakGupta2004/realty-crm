@@ -4,6 +4,7 @@ import { membershipService } from "./memberships.service";
 import { generateInviteToken, verifyInviteToken } from "../../shared/utils/token";
 import type { AuthenticatedRequest } from "../../shared/middleware/requireAuth";
 import { Workspace } from "../workspace/workspace.model";
+import { ensureDefaultPipelines } from "../pipeline/pipeline.seed";
 
 // ── POST /memberships/add-members ────────────────────────────────────
 export const addMembers = async (req: Request, res: Response) => {
@@ -119,6 +120,9 @@ export const joinWorkspace = async (req: Request, res: Response) => {
 
         // Add them as AGENT
         await membershipService.createMembership(workspaceId, authUser.user.id, "AGENT");
+
+        // Proactively create default pipelines for the new member
+        await ensureDefaultPipelines(workspaceId, authUser.user.id);
 
         // Upgrade Workspace to TEAM if it was SOLO
         const workspace = await Workspace.findById(workspaceId);

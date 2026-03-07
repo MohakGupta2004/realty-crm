@@ -11,7 +11,7 @@ interface Member {
   role: string;
 }
 
-export default function MembersView({ workspaceId }: { workspaceId: string }) {
+export default function MembersView({ workspaceId, userRole }: { workspaceId: string; userRole: string }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteLink, setInviteLink] = useState("");
@@ -68,38 +68,40 @@ export default function MembersView({ workspaceId }: { workspaceId: string }) {
         <h1 className="text-2xl font-semibold mb-8">Workspace / Members</h1>
 
         {/* Invite Section */}
-        <div className="mb-10 p-6 rounded-xl border border-white/[0.08] bg-white/[0.02]">
-          <h2 className="text-lg font-medium mb-2">Invite by link</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Share this link to invite users to join your workspace
-          </p>
+        {userRole === "OWNER" && (
+          <div className="mb-10 p-6 rounded-xl border border-white/[0.08] bg-white/[0.02]">
+            <h2 className="text-lg font-medium mb-2">Invite by link</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Share this link to invite users to join your workspace
+            </p>
 
-          <div className="flex items-center gap-3">
-            {inviteLink ? (
-              <div className="flex-1 flex items-center bg-black/40 px-3 py-2 rounded-md border border-white/[0.08] overflow-hidden">
-                <span className="text-sm text-white/70 truncate flex-1">{inviteLink}</span>
-              </div>
-            ) : (
-              <Button onClick={generateLink} variant="outline" className="border-white/[0.08] hover:bg-white/[0.04]">
-                Generate Link
-              </Button>
-            )}
+            <div className="flex items-center gap-3">
+              {inviteLink ? (
+                <div className="flex-1 flex items-center bg-black/40 px-3 py-2 rounded-md border border-white/[0.08] overflow-hidden">
+                  <span className="text-sm text-white/70 truncate flex-1">{inviteLink}</span>
+                </div>
+              ) : (
+                <Button onClick={generateLink} variant="outline" className="border-white/[0.08] hover:bg-white/[0.04]">
+                  Generate Link
+                </Button>
+              )}
 
-            {inviteLink && (
-              <Button onClick={copyToClipboard} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">
-                {copied ? (
-                  <>
-                    <Check className="w-4 h-4 mr-2" /> Copied
-                  </>
-                ) : (
-                  <>
-                    <LinkIcon className="w-4 h-4 mr-2" /> Copy link
-                  </>
-                )}
-              </Button>
-            )}
+              {inviteLink && (
+                <Button onClick={copyToClipboard} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="w-4 h-4 mr-2" /> Copy link
+                    </>
+                  ) }
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Members List */}
         <div>

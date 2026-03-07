@@ -121,7 +121,7 @@ function DashboardContent() {
       ) : activeView === "notes" ? (
         <NotesView workspaceId={activeWorkspaceId} userRole={activeWorkspace?.role || "AGENT"} />
       ) : activeView === "members" ? (
-        <MembersView workspaceId={activeWorkspaceId} />
+        <MembersView workspaceId={activeWorkspaceId} userRole={activeWorkspace?.role || "AGENT"} />
       ) : activeView.startsWith("tasks-") ? (
         <TasksView workspaceId={activeWorkspaceId} subView={activeView as "tasks-all" | "tasks-status" | "tasks-me"} userRole={activeWorkspace?.role || "AGENT"} />
       ) : null}
