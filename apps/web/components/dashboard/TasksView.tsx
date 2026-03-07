@@ -82,7 +82,7 @@ function getStatusStyle(status: string) {
 // ══════════════════════════════════════════════════════════════════════
 // TasksView
 // ══════════════════════════════════════════════════════════════════════
-export default function TasksView({ workspaceId, subView }: TasksViewProps) {
+export default function TasksView({ workspaceId, subView, userRole }: TasksViewProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [users, setUsers] = useState<User[]>([]); // To simulate workspace users if available
@@ -339,6 +339,7 @@ export default function TasksView({ workspaceId, subView }: TasksViewProps) {
           task={selectedTask}
           leads={leads}
           users={users} // ideally full workspace members
+          userRole={userRole}
           onClose={() => setSelectedTask(null)}
           onUpdate={(fields: any) => handleUpdate(selectedTask._id, fields)}
           onDelete={() => handleDelete(selectedTask._id)}
@@ -562,7 +563,7 @@ function KanbanBoard({ tasks, onUpdate, onAdd, onTaskClick }: any) {
 // ══════════════════════════════════════════════════════════════════════
 // Detail Panel Component
 // ══════════════════════════════════════════════════════════════════════
-function TaskDetailPanel({ task, leads, users, onClose, onUpdate, onDelete }: any) {
+function TaskDetailPanel({ task, leads, users, userRole, onClose, onUpdate, onDelete }: any) {
   const [activeTab, setActiveTab] = useState<"home" | "timeline" | "files">("home");
 
   const handleBlur = (field: string, val: string) => {
@@ -638,6 +639,7 @@ function TaskDetailPanel({ task, leads, users, onClose, onUpdate, onDelete }: an
                   <Dropdown 
                     status={task.assigneeId?.name || "Unassigned"} 
                     options={["Unassigned", ...users.map((u: User) => u.name)]} 
+                    disabled={userRole !== "OWNER"}
                     onSelect={(s) => {
                       if (s === "Unassigned") onUpdate({ assigneeId: null });
                       else onUpdate({ assigneeId: users.find((u: User) => u.name === s)?._id });
@@ -716,7 +718,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function Dropdown({ status, options, onSelect, isCustom }: { status: string, options: string[], onSelect: (val: string) => void, isCustom?: boolean }) {
+function Dropdown({ status, options, onSelect, isCustom, disabled }: { status: string, options: string[], onSelect: (val: string) => void, isCustom?: boolean, disabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -730,9 +732,12 @@ function Dropdown({ status, options, onSelect, isCustom }: { status: string, opt
 
   return (
     <div ref={ref} className="relative inline-block">
-      <button onClick={() => setOpen(!open)} className="focus:outline-none">
+      <button 
+        onClick={() => !disabled && setOpen(!open)} 
+        className={`focus:outline-none ${disabled ? 'cursor-not-allowed opacity-70' : ''}`}
+      >
         {isCustom ? (
-          <span className="text-xs text-foreground cursor-pointer hover:bg-white/[0.04] px-1.5 py-0.5 rounded">{status}</span>
+          <span className={`text-xs text-foreground ${!disabled && 'cursor-pointer hover:bg-white/[0.04]'} px-1.5 py-0.5 rounded`}>{status}</span>
         ) : (
           <StatusBadge status={status} />
         )}

@@ -5,13 +5,20 @@ import { Lead } from "../lead/lead.model";
 
 export class TaskService {
   static async createTask(taskData: ITaskCreate) {
-    const checkWorkspace = await Membership.findOne({
+    const membership = await Membership.findOne({
       workspace: taskData.workspaceId,
       user: taskData.realtorId,
       isRemoved: false,
     });
-    if (!checkWorkspace) {
+    if (!membership) {
       throw new Error("You are not a member of this workspace");
+    }
+
+    // Role check: Only OWNER can assign to others
+    if (membership.role !== "OWNER") {
+      if (taskData.assigneeId && taskData.assigneeId.toString() !== taskData.realtorId.toString()) {
+        throw new Error("Only owners can assign tasks to other members");
+      }
     }
 
     if (taskData.relations && taskData.relations.length > 0) {
@@ -35,13 +42,8 @@ export class TaskService {
       throw new Error("You are not a member of this workspace");
     }
 
-    const roleInWorkspace = membership.role;
+    // Every member sees all tasks in the workspace
     const query: any = { workspaceId };
-
-    // Uncomment lower line if we want to restrict non-owners to see only their tasks or tasks they are assigned to
-    if (roleInWorkspace !== "OWNER") {
-      query.$or = [{ realtorId }, { assigneeId: realtorId }];
-    }
 
     return await Task.find(query)
       .populate("relations", "name email")
@@ -50,20 +52,20 @@ export class TaskService {
       .sort({ createdAt: -1 })
       .lean();
   }
-
   static async getTasksByLead(leadId: string, workspaceId: string, realtorId: string) {
     const membership = await Membership.findOne({
       workspace: workspaceId,
       user: realtorId,
       isRemoved: false,
     });
+    if (!membership) {
+      throw new Error("You are not a member of this workspace");
+    }
+
     const query: any = {
       workspaceId,
       relations: leadId,
     };
-    if (membership && membership.role !== "OWNER") {
-      query.$or = [{ realtorId }, { assigneeId: realtorId }];
-    }
 
     return await Task.find(query)
       .populate("realtorId", "name")
@@ -73,8 +75,23 @@ export class TaskService {
   }
 
   static async updateTask(realtorId: string, taskId: string, taskData: ITaskUpdate) {
-    // Allow updates if you are the creator, or assigned to it, or in workspace. 
-    // For simplicity matching notes, just check ID. Real security could be stricter.
+    const task = await Task.findById(taskId);
+    if (!task) throw new Error("Task not found");
+
+    const membership = await Membership.findOne({
+      workspace: task.workspaceId,
+      user: realtorId,
+      isRemoved: false,
+    });
+    if (!membership) throw new Error("You are not a member of this workspace");
+
+    // Role check for assignment
+    if (membership.role !== "OWNER" && taskData.assigneeId) {
+      if (taskData.assigneeId.toString() !== realtorId.toString()) {
+        throw new Error("Only owners can assign tasks to other members");
+      }
+    }
+
     return await Task.findOneAndUpdate(
       { _id: taskId },
       taskData,
