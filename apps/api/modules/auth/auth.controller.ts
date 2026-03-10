@@ -134,11 +134,27 @@ export async function googleAuthCallback(
             return;
         }
 
+        // Handle specific OAuth intent redirects (e.g. Email Integration)
+        let stateObj: any = null;
+        try {
+            if (req.query.state) {
+                stateObj = JSON.parse(req.query.state as string);
+            }
+        } catch (e) {
+            console.error(`Error parsing state: ${e}`);
+        }
+
+        if (stateObj && stateObj.intent === "email_integration") {
+            const { emailIntegrationService } = await import("../emailIntegration/emailIntegration.service");
+            await emailIntegrationService.handleCallback(code, stateObj.userId);
+            res.redirect(`${env.FRONTEND_URL}/?email_connected=true`);
+            return;
+        }
+
         const { tokens, user } = await authService.googleCallback(code);
 
         res.cookie("refreshToken", tokens.refreshToken, REFRESH_COOKIE_OPTIONS);
 
-        // Redirect to frontend with the access token
         res.redirect(
             `${env.FRONTEND_URL}/auth/callback?token=${tokens.accessToken}`,
         );
