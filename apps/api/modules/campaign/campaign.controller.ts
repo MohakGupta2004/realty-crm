@@ -9,8 +9,8 @@ export const createCampaing = async (req: Request, res: Response) => {
   try {
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user.id;
-    const { name, description, workspaceId } = authReq.body;
-    if (!name || !description || !workspaceId) {
+    const { name, description, status, workspaceId } = authReq.body;
+    if (!name || !description || !status || !workspaceId) {
       return res.status(400).json({
         success: false,
         message: "Name, description and status are required",
@@ -19,6 +19,7 @@ export const createCampaing = async (req: Request, res: Response) => {
     const campaingCreateData: ICampaignCreate = {
       name,
       description,
+      status,
       workspaceId,
       userId,
     };

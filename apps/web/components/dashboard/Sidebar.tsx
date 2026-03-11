@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, ChevronDown, LogOut, Sun, Moon, Kanban, StickyNote, CheckSquare, ListTodo, Columns3, UserSquare2, Check, UserCircle, UserPlus, PlusSquare } from "lucide-react";
+import { Users, ChevronDown, LogOut, Sun, Moon, Kanban, StickyNote, CheckSquare, ListTodo, Columns3, UserSquare2, Check, UserCircle, UserPlus, PlusSquare, Megaphone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ import { CreateWorkspaceModal } from "@/components/dashboard/CreateWorkspaceModa
 // ── Types ─────────────────────────────────────────────────────────────
 export type ActiveViewType = 
   | "leads" 
+  | "campaigns"
   | "pipeline" 
   | "notes" 
   | "members"
@@ -44,6 +45,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { key: "leads", label: "Leads", icon: Users },
+  { key: "campaigns", label: "Campaigns", icon: Megaphone },
   { key: "pipeline", label: "Pipeline", icon: Kanban },
   { key: "notes", label: "Notes", icon: StickyNote },
   { 

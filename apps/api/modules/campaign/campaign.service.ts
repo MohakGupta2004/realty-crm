@@ -8,6 +8,7 @@ export class CampaingService {
     const campaing = await Campaing.create({
       name: data.name,
       description: data.description,
+      status: data.status,
       workspaceId: data.workspaceId,
       userId: data.userId,
     });

@@ -8,6 +8,7 @@ import PipelineView from "@/components/dashboard/PipelineView";
 import NotesView from "@/components/dashboard/NotesView";
 import MembersView from "@/components/dashboard/MembersView";
 import TasksView from "@/components/dashboard/TasksView";
+import CampaignsView from "@/components/dashboard/CampaignsView";
 import type { ActiveViewType } from "@/components/dashboard/Sidebar";
 import {
   getToken,
@@ -116,6 +117,8 @@ function DashboardContent() {
       />
       {activeView === "leads" ? (
         <LeadsView workspaceId={activeWorkspaceId} userRole={activeWorkspace?.role || "AGENT"} />
+      ) : activeView === "campaigns" ? (
+        <CampaignsView workspaceId={activeWorkspaceId} userRole={activeWorkspace?.role || "AGENT"} />
       ) : activeView === "pipeline" ? (
         <PipelineView workspaceId={activeWorkspaceId} userRole={activeWorkspace?.role || "AGENT"} />
       ) : activeView === "notes" ? (
