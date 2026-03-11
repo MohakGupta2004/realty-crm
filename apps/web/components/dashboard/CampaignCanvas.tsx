@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -34,9 +34,14 @@ interface CampaignStep {
 
 // Action Node (Step)
 function ActionNode({ data }: NodeProps) {
+  const isRunning = !(data as any).onEdit;
   return (
     <div 
-      className="group flex w-[280px] flex-col rounded-xl border border-border bg-card shadow-xl transition-all hover:border-muted-foreground/50 cursor-pointer"
+      className={`group flex w-[280px] flex-col rounded-xl border bg-card shadow-xl transition-all ${
+        isRunning 
+          ? "border-blue-500/30 cursor-default opacity-90" 
+          : "border-border hover:border-muted-foreground/50 cursor-pointer"
+      }`}
       onClick={() => (data as any).onEdit?.(data.step)}
     >
       {!data.isFirst && (
@@ -112,23 +117,33 @@ export default function CampaignCanvas({
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [steps, setSteps] = useState<CampaignStep[]>([]);
   const [loading, setLoading] = useState(true);
+  const [campaignStatus, setCampaignStatus] = useState<string>("created");
+  const [progress, setProgress] = useState({ total: 0, sent: 0, percentage: 0 });
+  const isCreatingDefault = useRef(false);
 
-  // Modal State
   const [showStepModal, setShowStepModal] = useState(false);
   const [editingStep, setEditingStep] = useState<CampaignStep | null>(null);
   const [starting, setStarting] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
-  const fetchSteps = useCallback(async () => {
+  const fetchCampaignInfo = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/campaign/${campaignId}/steps`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const [stepsRes, progressRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/campaign/${campaignId}/steps`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        }),
+        fetch(`${API_BASE_URL}/campaign/progress/${campaignId}`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        })
+      ]);
+
+      if (stepsRes.ok) {
+        const data = await stepsRes.json();
         let fetchedSteps = data.data || [];
 
         // Auto-create a demo step if none exist
-        if (fetchedSteps.length === 0) {
+        if (fetchedSteps.length === 0 && !isCreatingDefault.current) {
+          isCreatingDefault.current = true;
           try {
             const createRes = await fetch(`${API_BASE_URL}/campaign/step/create`, {
               method: "POST",
@@ -152,23 +167,45 @@ export default function CampaignCanvas({
             }
           } catch (e) {
             console.error(e);
+          } finally {
+            isCreatingDefault.current = false;
           }
         }
-
-        // Sort by stepOrder just to be sure
-        const sorted = fetchedSteps.sort((a: any, b: any) => a.stepOrder - b.stepOrder);
-        setSteps(sorted);
+        setSteps(fetchedSteps.sort((a: any, b: any) => a.stepOrder - b.stepOrder));
       }
-    } catch {
-      // ignore
+
+      if (progressRes.ok) {
+        const data = await progressRes.json();
+        setProgress(data.data);
+      }
+
+      // Also get actual campaign status
+      const campaignRes = await fetch(`${API_BASE_URL}/campaign/details/${campaignId}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (campaignRes.ok) {
+        const data = await campaignRes.json();
+        setCampaignStatus(data.data?.status || "created");
+      }
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   }, [campaignId]);
 
+  const fetchSteps = fetchCampaignInfo; // keep compatibility with existing calls
+
   useEffect(() => {
     fetchSteps();
   }, [fetchSteps]);
+
+  useEffect(() => {
+    if (campaignStatus === "running") {
+      const interval = setInterval(fetchCampaignInfo, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [campaignStatus, fetchCampaignInfo]);
 
   const handleEditStep = useCallback((step: CampaignStep) => {
     setEditingStep(step);
@@ -234,7 +271,7 @@ export default function CampaignCanvas({
 
       if (startRes.ok) {
         alert("Campaign started successfully!");
-        onClose();
+        fetchCampaignInfo();
       } else {
         const errData = await startRes.json();
         alert(errData.message || "Failed to start campaign");
@@ -243,6 +280,32 @@ export default function CampaignCanvas({
       alert(e.message || "An error occurred starting the campaign.");
     } finally {
       setStarting(false);
+    }
+  };
+
+  const handleStopCampaign = async () => {
+    setStopping(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/campaign/stop`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ campaignId }),
+      });
+
+      if (res.ok) {
+        alert("Campaign stopped/paused successfully!");
+        fetchCampaignInfo();
+      } else {
+        const errData = await res.json();
+        alert(errData.message || "Failed to stop campaign");
+      }
+    } catch (e: any) {
+      alert(e.message || "An error occurred stopping the campaign.");
+    } finally {
+      setStopping(false);
     }
   };
 
@@ -270,8 +333,8 @@ export default function CampaignCanvas({
           delayDays: step.delayDays,
           step: step,
           isFirst: index === 0,
-          onEdit: handleEditStep,
-          onDelete: handleDeleteStep,
+          onEdit: campaignStatus === "running" ? undefined : handleEditStep,
+          onDelete: campaignStatus === "running" ? undefined : handleDeleteStep,
         },
       });
 
@@ -293,25 +356,27 @@ export default function CampaignCanvas({
 
     // 2. Add Button Node
     const addNodeId = "add-btn";
-    newNodes.push({
-      id: addNodeId,
-      type: "addNode",
-      position: { x: xPos, y: currY },
-      data: {
-        onAdd: handleAddStepClick,
-      },
-    });
-
-    if (lastNodeId) {
-      newEdges.push({
-        id: `edge-${lastNodeId}-${addNodeId}`,
-        source: lastNodeId,
-        target: addNodeId,
-        type: "straight",
-        animated: true,
-        style: { strokeWidth: 2, strokeDasharray: "5,5" },
-        className: "text-muted-foreground/40",
+    if (campaignStatus !== "running") {
+      newNodes.push({
+        id: addNodeId,
+        type: "addNode",
+        position: { x: xPos, y: currY },
+        data: {
+          onAdd: handleAddStepClick,
+        },
       });
+
+      if (lastNodeId) {
+        newEdges.push({
+          id: `edge-${lastNodeId}-${addNodeId}`,
+          source: lastNodeId,
+          target: addNodeId,
+          type: "straight",
+          animated: true,
+          style: { strokeWidth: 2, strokeDasharray: "5,5" },
+          className: "text-muted-foreground/40",
+        });
+      }
     }
 
     setNodes(newNodes);
@@ -322,32 +387,76 @@ export default function CampaignCanvas({
     <div className="absolute inset-0 z-40 flex flex-col bg-background animate-in slide-in-from-right-8 duration-200">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Workflow / {campaignName}</h2>
-          <span className="mt-1 inline-block rounded bg-yellow-500/20 px-2 py-0.5 text-[10px] uppercase font-bold text-yellow-500">
-            Draft
-          </span>
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+            <Megaphone className="h-4 w-4 text-blue-500" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-foreground leading-none">
+              {campaignName}
+            </h2>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${campaignStatus === 'running' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></span>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                {campaignStatus}
+              </p>
+            </div>
+          </div>
         </div>
+
+        {campaignStatus === 'running' && (
+          <div className="flex-1 max-w-[300px] mx-8">
+             <div className="flex justify-between items-center mb-1">
+                <span className="text-[10px] text-muted-foreground font-medium uppercase">Sending Emails</span>
+                <span className="text-[10px] font-bold text-blue-500">{progress.percentage}%</span>
+             </div>
+             <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-500 transition-all duration-500" 
+                  style={{ width: `${progress.percentage}%` }}
+                ></div>
+             </div>
+             <p className="text-[9px] text-muted-foreground mt-1">
+                {progress.sent} of {progress.total} emails sent
+             </p>
+          </div>
+        )}
+
         <div className="flex items-center gap-3">
-          <Button
-            size="sm"
-            onClick={handleStartCampaign}
-            disabled={starting}
-            className="h-8 gap-1.5 rounded-md px-4 text-xs bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-md transition-colors"
-          >
-            <Play className="h-3.5 w-3.5 fill-current" />
-            {starting ? "Starting..." : "Start Campaign"}
-          </Button>
+          {campaignStatus === "running" ? (
+            <Button
+              size="sm"
+              onClick={handleStopCampaign}
+              disabled={stopping}
+              className="h-8 gap-1.5 rounded-md px-4 text-xs bg-red-600 hover:bg-red-700 text-white border-0 shadow-md transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+              {stopping ? "Stopping..." : "Stop Campaign"}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={handleStartCampaign}
+              disabled={starting}
+              className="h-8 gap-1.5 rounded-md px-4 text-xs bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-md transition-colors"
+            >
+              <Play className="h-3.5 w-3.5 fill-current" />
+              {starting ? "Starting..." : campaignStatus === "paused" ? "Resume Campaign" : "Start Campaign"}
+            </Button>
+          )}
+
           <div className="h-4 w-px bg-border mx-1"></div>
-          <Button
-            size="sm"
-            onClick={handleAddStepClick}
-            className="h-8 gap-1.5 rounded-md px-3 text-xs bg-muted hover:bg-muted-foreground/20 text-foreground border-0"
-            variant="outline"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add a node
-          </Button>
+          {campaignStatus !== "running" && (
+            <Button
+              size="sm"
+              onClick={handleAddStepClick}
+              className="h-8 gap-1.5 rounded-md px-3 text-xs bg-muted hover:bg-muted-foreground/20 text-foreground border-0"
+              variant="outline"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Step
+            </Button>
+          )}
           <button
             onClick={onClose}
             className="rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"

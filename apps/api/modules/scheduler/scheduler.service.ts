@@ -1,4 +1,5 @@
 import { CampaignBatch } from "../campaign/models/campaignBatch.model";
+import { Campaing } from "../campaign/models/campaign.model";
 import { MailService } from "../mail/mail.service";
 
 export class SchedulerService {
@@ -24,6 +25,14 @@ export class SchedulerService {
       );
 
       if (!batch) break;
+
+      // Safety check: ensure the campaign is still running
+      const campaign = await Campaing.findById(batch.campaignId).select("status").lean();
+      if (!campaign || campaign.status !== "running") {
+        // If not running, mark this batch as paused so we don't pick it up again immediately
+        await CampaignBatch.findByIdAndUpdate(batch._id, { status: "paused" });
+        continue;
+      }
 
       await MailService.queueMail(batch._id);
 

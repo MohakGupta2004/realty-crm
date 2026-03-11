@@ -30,6 +30,8 @@ const campaignStepSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
+campaignStepSchema.index({ campaignId: 1, stepOrder: 1 }, { unique: true });
+
 export const CampaignStep = mongoose.model("CampaignStep", campaignStepSchema);
 
 /*

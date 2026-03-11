@@ -84,36 +84,74 @@ export class CampaingService {
       throw new Error("Campaign not found");
     }
 
-    const batches = [];
+    // 1. Flip any paused batches to pending (resume scenario)
+    await CampaignBatch.updateMany(
+      { campaignId, status: "paused" },
+      { $set: { status: "pending" } }
+    );
 
     const BATCH_SIZE = 50;
 
     for (const step of steps) {
+      // 2. Check if this step already has batches
+      const stepBatchesCount = await CampaignBatch.countDocuments({ 
+        campaignId, 
+        stepId: step._id 
+      });
 
-      const runAt = new Date(
-        Date.now() + step.delayDays * 86400000
-      );
+      if (stepBatchesCount === 0) {
+        // 3. Create batches ONLY if they don't exist for this step
+        const runAt = new Date(
+          Date.now() + step.delayDays * 86400000
+        );
 
-      for (let i = 0; i < leads.length; i += BATCH_SIZE) {
+        const newBatches = [];
+        for (let i = 0; i < leads.length; i += BATCH_SIZE) {
+          newBatches.push({
+            campaignId,
+            stepId: step._id,
+            leads: leads.slice(i, i + BATCH_SIZE),
+            runAt,
+            status: "pending"
+          });
+        }
 
-        batches.push({
-          campaignId,
-          stepId: step._id,
-          leads: leads.slice(i, i + BATCH_SIZE),
-          runAt,
-          status: "pending"
-        });
-
+        if (newBatches.length > 0) {
+          await CampaignBatch.insertMany(newBatches);
+        }
       }
-
     }
-
-    await CampaignBatch.insertMany(batches);
 
     await Campaing.findByIdAndUpdate(campaignId, {
       status: "running"
     });
 
+  }
+
+  static async stopCampaign(campaignId: string) {
+    // 1. Set campaign to paused
+    await Campaing.findByIdAndUpdate(campaignId, { status: "paused" });
+
+    // 2. Set all pending batches to paused so scheduler skips them
+    await CampaignBatch.updateMany(
+      { campaignId, status: "pending" },
+      { $set: { status: "paused" } }
+    );
+
+    return { success: true };
+  }
+
+  static async getCampaignProgress(campaignId: string) {
+    const total = await CampaignBatch.countDocuments({ campaignId });
+    const sent = await CampaignBatch.countDocuments({ campaignId, status: "sent" });
+    const failed = await CampaignBatch.countDocuments({ campaignId, status: "failed" });
+
+    return {
+      total,
+      sent,
+      failed,
+      percentage: total > 0 ? Math.round((sent / total) * 100) : 0
+    };
   }
 
   static async deleteCampaignStep(stepId: string) {
@@ -123,7 +161,7 @@ export class CampaingService {
 
   static async getCampaignSteps(campaignId: string) {
     const campaignStep = await CampaignStep.find({ campaignId })
-      .select("delayDays subject stepOrder _id")
+      .select("delayDays subject body stepOrder _id")
       .sort({ stepOrder: 1 })
       .lean();
     return campaignStep;
