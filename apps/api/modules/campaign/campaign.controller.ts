@@ -9,8 +9,8 @@ export const createCampaing = async (req: Request, res: Response) => {
   try {
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user.id;
-    const { name, description, workspaceId } = authReq.body;
-    if (!name || !description || !workspaceId) {
+    const { name, description, status, workspaceId } = authReq.body;
+    if (!name || !description || !status || !workspaceId) {
       return res.status(400).json({
         success: false,
         message: "Name, description and status are required",
@@ -19,6 +19,7 @@ export const createCampaing = async (req: Request, res: Response) => {
     const campaingCreateData: ICampaignCreate = {
       name,
       description,
+      status,
       workspaceId,
       userId,
     };
@@ -218,6 +219,53 @@ export const startCampaign = async (req: Request, res: Response) => {
     });
   }
 }
+
+export const stopCampaign = async (req: Request, res: Response) => {
+  try {
+    const { campaignId } = req.body;
+    if (!campaignId) {
+      return res.status(400).json({
+        success: false,
+        message: "CampaignId is required",
+      });
+    }
+    const result = await CampaingService.stopCampaign(campaignId);
+    return res.status(200).json({
+      success: true,
+      message: "Campaing stopped successfully",
+      data: result,
+    });
+  } catch (error: any) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to stop campaign",
+    });
+  }
+};
+
+export const getCampaignProgress = async (req: Request, res: Response) => {
+  try {
+    const campaignId = req.params.campaignId as string;
+    if (!campaignId) {
+      return res.status(400).json({
+        success: false,
+        message: "CampaignId is required",
+      });
+    }
+    const progress = await CampaingService.getCampaignProgress(campaignId);
+    return res.status(200).json({
+      success: true,
+      data: progress,
+    });
+  } catch (error: any) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch progress",
+    });
+  }
+};
 
 export const deleteCampaignStep = async (req: Request, res: Response) => {
   try {

@@ -23,7 +23,7 @@ const campaignBatchSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ["pending", "queued", "processing", "sent", "failed"],
+        enum: ["pending", "queued", "processing", "sent", "failed", "paused"],
         default: "pending"
     }
 
@@ -33,6 +33,8 @@ campaignBatchSchema.index({
     status: 1,
     runAt: 1
 });
+
+campaignBatchSchema.index({ campaignId: 1, stepId: 1 });
 
 /*
 

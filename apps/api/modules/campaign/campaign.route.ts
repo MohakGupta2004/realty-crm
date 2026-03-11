@@ -7,10 +7,12 @@ import {
   deleteCampaing,
   createCampaignStep,
   startCampaign,
+  stopCampaign,
   deleteCampaignStep,
   getCampaignSteps,
   getCampaignStep,
   updateCampaignStep,
+  getCampaignProgress,
   trackEmailOpen,
   unsubscribeEmail
 } from "./campaign.controller";
@@ -31,10 +33,12 @@ router.post("/create", createCampaing);
 router.put("/update", updateCampaing);
 router.post('/step/create', createCampaignStep);
 router.post('/start', startCampaign);
+router.post('/stop', stopCampaign);
 router.put('/step/:stepId', updateCampaignStep);
 router.delete('/step/:stepId', deleteCampaignStep);
 
 router.get("/details/:campaignId", getCampaingDetails);
+router.get("/progress/:campaignId", getCampaignProgress);
 router.get('/:campaignId/steps', getCampaignSteps);
 router.get('/:campaignId/steps/:stepId', getCampaignStep);
 router.get("/:workspaceId", getCampaings);

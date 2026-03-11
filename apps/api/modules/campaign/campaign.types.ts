@@ -13,6 +13,7 @@ export interface ICampaign {
 export interface ICampaignCreate {
     name: string;
     description: string;
+    status: string;
     workspaceId: string;
     userId: string;
 }
