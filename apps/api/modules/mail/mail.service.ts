@@ -2,6 +2,8 @@ import type mongoose from "mongoose";
 import { AIMailService } from "./AI.service";
 import type { ILeadsMail, IMail } from "./mail.types";
 import { CloudTasksClient } from '@google-cloud/tasks';
+import { WorkerService } from "../worker/worker.service";
+
 export class MailService {
 
     private static client = new CloudTasksClient();
@@ -37,6 +39,19 @@ export class MailService {
             const queue = process.env.GCP_QUEUE_NAME;
 
             if (!project || !location || !queue) {
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('GCP Task Queue not configured. Running in local development mode...');
+                    // Simulate a small delay and call worker directly
+                    setTimeout(async () => {
+                        try {
+                            await WorkerService.sendBatchEmailWithRetry(batchId.toString());
+                            console.log(`Local worker processed batch ${batchId}`);
+                        } catch (err) {
+                            console.error(`Local worker failed batch ${batchId}:`, err);
+                        }
+                    }, delay * 1000);
+                    return { name: 'local-dev-task' };
+                }
                 throw new Error('Missing required GCP environment variables: GCP_PROJECT_ID, GCP_REGION, or GCP_QUEUE_NAME');
             }
 

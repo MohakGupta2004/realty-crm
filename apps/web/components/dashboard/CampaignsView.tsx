@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API_BASE_URL, getToken } from "@/lib/auth";
+import CampaignCanvas from "./CampaignCanvas";
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface Campaign {
@@ -60,6 +61,7 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<Set<string>>(new Set());
   const [showNewForm, setShowNewForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showCanvasId, setShowCanvasId] = useState<string | null>(null);
 
   // new-campaign form
   const [newName, setNewName] = useState("");
@@ -167,7 +169,7 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
     setSubmitting(true);
     try {
       for (const id of selectedCampaignIds) {
-        await fetch(`${API_BASE_URL}/campaign/details/${id}`, {
+        await fetch(`${API_BASE_URL}/campaign/${id}`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -185,7 +187,7 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
   // RENDER
   // ══════════════════════════════════════════════════════════════════
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-1 overflow-hidden relative">
       {/* ── Main table area ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col bg-background">
         {/* Header bar */}
@@ -400,6 +402,17 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
           campaign={selectedCampaign}
           workspaceId={workspaceId}
           onClose={() => setSelectedCampaign(null)}
+          onLaunchEditor={() => setShowCanvasId(selectedCampaign._id)}
+        />
+      )}
+
+      {/* ── Visual Canvas Overlay ───────────────────────────────────── */}
+      {showCanvasId && selectedCampaign && showCanvasId === selectedCampaign._id && (
+        <CampaignCanvas
+          campaignId={selectedCampaign._id}
+          campaignName={selectedCampaign.name}
+          workspaceId={workspaceId}
+          onClose={() => setShowCanvasId(null)}
         />
       )}
     </div>
@@ -411,10 +424,12 @@ function CampaignDetailPanel({
   campaign,
   workspaceId,
   onClose,
+  onLaunchEditor,
 }: {
   campaign: Campaign;
   workspaceId: string;
   onClose: () => void;
+  onLaunchEditor: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "leads">("overview");
 
@@ -488,10 +503,10 @@ function CampaignDetailPanel({
                 <div>
                   <p className="text-sm font-medium">Visual Canvas</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Visual email sequence builder coming soon.
+                    Manage your visual email sequence.
                   </p>
                 </div>
-                <Button variant="outline" size="sm" className="mt-2 text-xs h-7" disabled>
+                <Button variant="outline" size="sm" className="mt-2 text-xs h-7" onClick={onLaunchEditor}>
                   Launch Editor
                 </Button>
               </div>
