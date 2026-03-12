@@ -43,6 +43,10 @@ export async function getIntegrationStatus(req: AuthenticatedRequest, res: Respo
     }
 }
 
+import { CommunicationService } from "../communication/communication.service";
+import { ActivityService } from "../activity/activity.service";
+import { ActivityType } from "../activity/activity.types";
+
 export async function sendEmailToLead(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
         const userId = req.user?.id;
@@ -68,6 +72,23 @@ export async function sendEmailToLead(req: AuthenticatedRequest, res: Response):
             return;
         }
         await emailIntegrationService.sendEmail(userId, lead.email, subject, body);
+
+        // Save communication record
+        await CommunicationService.createCommunication({
+            leadId,
+            realtorId: userId,
+            type: "EMAIL",
+            subject,
+            body
+        });
+
+        // Log activity
+        await ActivityService.logActivity({
+            leadId,
+            realtorId: userId,
+            type: ActivityType.EMAIL_SENT,
+            content: `Sent email: ${subject}`
+        });
 
         res.status(200).json({ message: "Email sent successfully" });
     } catch (error: any) {
