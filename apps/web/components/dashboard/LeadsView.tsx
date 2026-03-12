@@ -16,6 +16,14 @@ import {
   Trash2,
   CheckSquare,
   User,
+  Send,
+  History,
+  Loader2,
+  MessageSquare,
+  CheckCircle,
+  Circle,
+  UserPlus,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -184,7 +192,10 @@ const TABLE_COLUMNS = [
 // ══════════════════════════════════════════════════════════════════════
 // LeadsView
 // ══════════════════════════════════════════════════════════════════════
-export default function LeadsView({ workspaceId, userRole = "AGENT" }: LeadsViewProps) {
+export default function LeadsView({
+  workspaceId,
+  userRole = "AGENT",
+}: LeadsViewProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -217,7 +228,7 @@ export default function LeadsView({ workspaceId, userRole = "AGENT" }: LeadsView
   let currentUserId = "";
   if (token) {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = JSON.parse(atob(token.split(".")[1]));
       currentUserId = payload.id || payload._id || payload.sub;
     } catch (e) {}
   }
@@ -276,7 +287,11 @@ export default function LeadsView({ workspaceId, userRole = "AGENT" }: LeadsView
       setFormError("Name is required");
       return;
     }
-    setFormError("");
+    const extractEmail = (input: string) => {
+      const match = input.match(/<(.+)>$/);
+      return match ? match[1] : input.trim();
+    };
+
     setSubmitting(true);
     try {
       const fullPhone = newPhone.trim()
@@ -290,7 +305,7 @@ export default function LeadsView({ workspaceId, userRole = "AGENT" }: LeadsView
         },
         body: JSON.stringify({
           name: newName.trim(),
-          email: newEmail.trim(),
+          email: extractEmail(newEmail),
           phone: fullPhone,
           city: newCity.trim(),
           source: newSource.trim() || "manual",
@@ -341,13 +356,19 @@ export default function LeadsView({ workspaceId, userRole = "AGENT" }: LeadsView
   async function saveInlineEdit(leadId: string, field: string, value: string) {
     setEditingCell(null);
     try {
+      let finalValue = value;
+      if (field === "email") {
+        const match = value.match(/<(.+)>$/);
+        finalValue = match ? match[1] : value.trim();
+      }
+
       const res = await fetch(`${API_BASE_URL}/lead/details/${leadId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ [field]: value }),
+        body: JSON.stringify({ [field]: finalValue }),
       });
       if (res.ok) fetchLeads();
     } catch {
@@ -472,7 +493,9 @@ export default function LeadsView({ workspaceId, userRole = "AGENT" }: LeadsView
                     onChange={toggleAll}
                   />
                 </th>
-                {TABLE_COLUMNS.filter(col => col.key !== "realtor" || userRole === "OWNER").map((col) => (
+                {TABLE_COLUMNS.filter(
+                  (col) => col.key !== "realtor" || userRole === "OWNER",
+                ).map((col) => (
                   <th
                     key={col.key}
                     className="px-4 py-2.5 text-xs font-medium text-muted-foreground"
@@ -488,169 +511,185 @@ export default function LeadsView({ workspaceId, userRole = "AGENT" }: LeadsView
             <tbody>
               {/* ── Existing leads ────────────────────────────────── */}
               {leads.map((lead) => {
-                const isOwnLead = lead.realtorId?._id === currentUserId || !lead.realtorId;
+                const isOwnLead =
+                  lead.realtorId?._id === currentUserId || !lead.realtorId;
                 const canEdit = isOwnLead || userRole !== "OWNER"; // AGENT cannot see others anyway, OWNER can only edit own leads
-                
+
                 return (
-                <tr
-                  key={lead._id}
-                  onClick={(e) => {
-                    // Prevent row click if clicking checkbox or editable cells
-                    if (
-                      (e.target as HTMLElement).tagName.toLowerCase() ===
-                      "input"
-                    )
-                      return;
-                    handleRowClick(lead);
-                  }}
-                  className={`cursor-pointer border-b border-white/[0.04] transition-colors hover:bg-white/[0.03] ${
-                    selectedLead?._id === lead._id ? "bg-white/[0.05]" : ""
-                  } ${selectedLeadIds.has(lead._id) ? "bg-blue-500/[0.02]" : ""}`}
-                >
-                  {/* Select */}
-                  <td className="px-4 py-2.5 w-10">
-                    <input
-                      type="checkbox"
-                      className="h-3.5 w-3.5 rounded appearance-none border border-gray-400 bg-transparent checked:bg-blue-500"
-                      checked={selectedLeadIds.has(lead._id)}
-                      onChange={() => toggleLead(lead._id)}
-                    />
-                  </td>
+                  <tr
+                    key={lead._id}
+                    onClick={(e) => {
+                      // Prevent row click if clicking checkbox or editable cells
+                      if (
+                        (e.target as HTMLElement).tagName.toLowerCase() ===
+                        "input"
+                      )
+                        return;
+                      handleRowClick(lead);
+                    }}
+                    className={`cursor-pointer border-b border-white/[0.04] transition-colors hover:bg-white/[0.03] ${
+                      selectedLead?._id === lead._id ? "bg-white/[0.05]" : ""
+                    } ${selectedLeadIds.has(lead._id) ? "bg-blue-500/[0.02]" : ""}`}
+                  >
+                    {/* Select */}
+                    <td className="px-4 py-2.5 w-10">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5 rounded appearance-none border border-gray-400 bg-transparent checked:bg-blue-500"
+                        checked={selectedLeadIds.has(lead._id)}
+                        onChange={() => toggleLead(lead._id)}
+                      />
+                    </td>
 
-                  {/* Name */}
-                  <td className="px-4 py-2.5">
-                    <EditableNameCell
-                      lead={lead}
-                      editing={
-                        canEdit &&
-                        editingCell?.leadId === lead._id &&
-                        editingCell?.field === "name"
-                      }
-                      editValue={editValue}
-                      onStart={() => canEdit && startEditing(lead._id, "name", lead.name)}
-                      onChange={setEditValue}
-                      onSave={(v) => saveInlineEdit(lead._id, "name", v)}
-                      onCancel={() => setEditingCell(null)}
-                      canEdit={canEdit}
-                    />
-                  </td>
-
-                  {/* Email */}
-                  <td className="px-4 py-2.5">
-                    <EditableChipCell
-                      value={lead.email}
-                      editing={
-                        canEdit &&
-                        editingCell?.leadId === lead._id &&
-                        editingCell?.field === "email"
-                      }
-                      editValue={editValue}
-                      onStart={() =>
-                        canEdit && startEditing(lead._id, "email", lead.email)
-                      }
-                      onChange={setEditValue}
-                      onSave={(v) => saveInlineEdit(lead._id, "email", v)}
-                      onCancel={() => setEditingCell(null)}
-                      canEdit={canEdit}
-                    />
-                  </td>
-
-                  {/* Phone */}
-                  <td className="px-4 py-2.5">
-                    <EditableChipCell
-                      value={lead.phone}
-                      editing={
-                        canEdit &&
-                        editingCell?.leadId === lead._id &&
-                        editingCell?.field === "phone"
-                      }
-                      editValue={editValue}
-                      onStart={() =>
-                        canEdit && startEditing(lead._id, "phone", lead.phone)
-                      }
-                      onChange={setEditValue}
-                      onSave={(v) => saveInlineEdit(lead._id, "phone", v)}
-                      onCancel={() => setEditingCell(null)}
-                      canEdit={canEdit}
-                    />
-                  </td>
-
-                  {/* City */}
-                  <td className="px-4 py-2.5">
-                    <EditableTextCell
-                      value={lead.city || ""}
-                      editing={
-                        canEdit &&
-                        editingCell?.leadId === lead._id &&
-                        editingCell?.field === "city"
-                      }
-                      editValue={editValue}
-                      onStart={() =>
-                        canEdit && startEditing(lead._id, "city", lead.city || "")
-                      }
-                      onChange={setEditValue}
-                      onSave={(v) => saveInlineEdit(lead._id, "city", v)}
-                      onCancel={() => setEditingCell(null)}
-                      canEdit={canEdit}
-                    />
-                  </td>
-
-                  {/* Realtor/Agent (Show only to OWNER) */}
-                  {userRole === "OWNER" && (
+                    {/* Name */}
                     <td className="px-4 py-2.5">
-                      {lead.realtorId ? (
-                         <div className="flex items-center gap-1.5 tooltip-trigger">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-[12px] truncate max-w-[80px]">{lead.realtorId.name}</span>
-                         </div>
+                      <EditableNameCell
+                        lead={lead}
+                        editing={
+                          canEdit &&
+                          editingCell?.leadId === lead._id &&
+                          editingCell?.field === "name"
+                        }
+                        editValue={editValue}
+                        onStart={() =>
+                          canEdit && startEditing(lead._id, "name", lead.name)
+                        }
+                        onChange={setEditValue}
+                        onSave={(v) => saveInlineEdit(lead._id, "name", v)}
+                        onCancel={() => setEditingCell(null)}
+                        canEdit={canEdit}
+                      />
+                    </td>
+
+                    {/* Email */}
+                    <td className="px-4 py-2.5">
+                      <EditableChipCell
+                        value={lead.email}
+                        editing={
+                          canEdit &&
+                          editingCell?.leadId === lead._id &&
+                          editingCell?.field === "email"
+                        }
+                        editValue={editValue}
+                        onStart={() =>
+                          canEdit && startEditing(lead._id, "email", lead.email)
+                        }
+                        onChange={setEditValue}
+                        onSave={(v) => saveInlineEdit(lead._id, "email", v)}
+                        onCancel={() => setEditingCell(null)}
+                        canEdit={canEdit}
+                      />
+                    </td>
+
+                    {/* Phone */}
+                    <td className="px-4 py-2.5">
+                      <EditableChipCell
+                        value={lead.phone}
+                        editing={
+                          canEdit &&
+                          editingCell?.leadId === lead._id &&
+                          editingCell?.field === "phone"
+                        }
+                        editValue={editValue}
+                        onStart={() =>
+                          canEdit && startEditing(lead._id, "phone", lead.phone)
+                        }
+                        onChange={setEditValue}
+                        onSave={(v) => saveInlineEdit(lead._id, "phone", v)}
+                        onCancel={() => setEditingCell(null)}
+                        canEdit={canEdit}
+                      />
+                    </td>
+
+                    {/* City */}
+                    <td className="px-4 py-2.5">
+                      <EditableTextCell
+                        value={lead.city || ""}
+                        editing={
+                          canEdit &&
+                          editingCell?.leadId === lead._id &&
+                          editingCell?.field === "city"
+                        }
+                        editValue={editValue}
+                        onStart={() =>
+                          canEdit &&
+                          startEditing(lead._id, "city", lead.city || "")
+                        }
+                        onChange={setEditValue}
+                        onSave={(v) => saveInlineEdit(lead._id, "city", v)}
+                        onCancel={() => setEditingCell(null)}
+                        canEdit={canEdit}
+                      />
+                    </td>
+
+                    {/* Realtor/Agent (Show only to OWNER) */}
+                    {userRole === "OWNER" && (
+                      <td className="px-4 py-2.5">
+                        {lead.realtorId ? (
+                          <div className="flex items-center gap-1.5 tooltip-trigger">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-[12px] truncate max-w-[80px]">
+                              {lead.realtorId.name}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-[12px]">
+                            Unknown
+                          </span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* Status */}
+                    <td
+                      className="px-4 py-2.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {userRole === "OWNER" &&
+                      getRealtorId(lead) !== currentUserId ? (
+                        <span className="text-muted-foreground/30 text-[12px]">
+                          —
+                        </span>
                       ) : (
-                        <span className="text-muted-foreground text-[12px]">Unknown</span>
+                        <StatusDropdown
+                          status={lead.status}
+                          colorIndex={lead.stageId?.colorIndex}
+                          onChange={
+                            canEdit
+                              ? (s) => saveInlineEdit(lead._id, "status", s)
+                              : undefined
+                          }
+                          disabled={!canEdit}
+                        />
                       )}
                     </td>
-                  )}
 
-                  {/* Status */}
-                  <td
-                    className="px-4 py-2.5"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {userRole === "OWNER" && getRealtorId(lead) !== currentUserId ? (
-                      <span className="text-muted-foreground/30 text-[12px]">—</span>
-                    ) : (
-                      <StatusDropdown
-                        status={lead.status}
-                        colorIndex={lead.stageId?.colorIndex}
-                        onChange={canEdit ? ((s) => saveInlineEdit(lead._id, "status", s)) : undefined}
-                        disabled={!canEdit}
+                    {/* Source */}
+                    <td className="px-4 py-2.5">
+                      <EditableTextCell
+                        value={lead.source}
+                        editing={
+                          canEdit &&
+                          editingCell?.leadId === lead._id &&
+                          editingCell?.field === "source"
+                        }
+                        editValue={editValue}
+                        onStart={() =>
+                          canEdit &&
+                          startEditing(lead._id, "source", lead.source)
+                        }
+                        onChange={setEditValue}
+                        onSave={(v) => saveInlineEdit(lead._id, "source", v)}
+                        onCancel={() => setEditingCell(null)}
+                        canEdit={canEdit}
                       />
-                    )}
-                  </td>
+                    </td>
 
-                  {/* Source */}
-                  <td className="px-4 py-2.5">
-                    <EditableTextCell
-                      value={lead.source}
-                      editing={
-                        canEdit &&
-                        editingCell?.leadId === lead._id &&
-                        editingCell?.field === "source"
-                      }
-                      editValue={editValue}
-                      onStart={() =>
-                        canEdit && startEditing(lead._id, "source", lead.source)
-                      }
-                      onChange={setEditValue}
-                      onSave={(v) => saveInlineEdit(lead._id, "source", v)}
-                      onCancel={() => setEditingCell(null)}
-                      canEdit={canEdit}
-                    />
-                  </td>
-
-                  {/* Created At */}
-                  <td className="px-4 py-2.5 text-[12px] text-muted-foreground">
-                    {timeAgo(lead.createdAt)}
-                  </td>
-                </tr>
+                    {/* Created At */}
+                    <td className="px-4 py-2.5 text-[12px] text-muted-foreground">
+                      {timeAgo(lead.createdAt)}
+                    </td>
+                  </tr>
                 );
               })}
 
@@ -1088,11 +1127,12 @@ function DetailPanel({
   currentUserId?: string;
 }) {
   const [activeTab, setActiveTab] = useState<
-    "home" | "timeline" | "tasks" | "notes"
+    "home" | "timeline" | "tasks" | "notes" | "emails"
   >("home");
 
   const tabs = [
     { key: "home" as const, label: "Home" },
+    { key: "emails" as const, label: "Emails" },
     { key: "notes" as const, label: "Notes" },
     { key: "timeline" as const, label: "Timeline" },
     { key: "tasks" as const, label: "Tasks" },
@@ -1151,12 +1191,11 @@ function DetailPanel({
         {activeTab === "notes" && (
           <NotesTab lead={lead} workspaceId={workspaceId} />
         )}
+        {activeTab === "emails" && (
+          <EmailsTab lead={lead} workspaceId={workspaceId} />
+        )}
         {activeTab === "timeline" && (
-          <div className="flex flex-1 items-center justify-center px-4 py-12">
-            <p className="text-xs text-muted-foreground/60">
-              Timeline coming soon
-            </p>
-          </div>
+          <TimelineTab lead={lead} workspaceId={workspaceId} />
         )}
         {activeTab === "tasks" && (
           <TasksTab lead={lead} workspaceId={workspaceId} />
@@ -1810,15 +1849,21 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
   const [tasks, setTasks] = useState<any[]>([]);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
+  const [editingCell, setEditingCell] = useState<{
+    id: string;
+    field: string;
+  } | null>(null);
   const [editValue, setEditValue] = useState("");
   const token = getToken();
 
   const fetchTasks = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/task/lead/${lead._id}/workspace/${workspaceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/task/lead/${lead._id}/workspace/${workspaceId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         setTasks(data.tasks || []);
@@ -1837,7 +1882,10 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
     try {
       const res = await fetch(`${API_BASE_URL}/task/create`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           title: newTaskTitle.trim(),
           workspaceId,
@@ -1854,12 +1902,19 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
     }
   }
 
-  async function handleUpdateTask(taskId: string, field: string, value: string) {
+  async function handleUpdateTask(
+    taskId: string,
+    field: string,
+    value: string,
+  ) {
     if (editingCell) setEditingCell(null);
     try {
       await fetch(`${API_BASE_URL}/task/details/${taskId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ [field]: value }),
       });
       fetchTasks();
@@ -1886,9 +1941,18 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
 
       <div className="flex-1 overflow-auto space-y-2">
         {tasks.map((task) => (
-          <div key={task._id} className="group flex items-start gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-[12px] transition-colors hover:bg-white/[0.04]">
+          <div
+            key={task._id}
+            className="group flex items-start gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] p-3 text-[12px] transition-colors hover:bg-white/[0.04]"
+          >
             <button
-              onClick={() => handleUpdateTask(task._id, "status", task.status === "Done" ? "To do" : "Done")}
+              onClick={() =>
+                handleUpdateTask(
+                  task._id,
+                  "status",
+                  task.status === "Done" ? "To do" : "Done",
+                )
+              }
               className="mt-0.5 text-muted-foreground hover:text-foreground"
             >
               {task.status === "Done" ? (
@@ -1900,7 +1964,9 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
             <div className="flex-1 min-w-0">
               <EditableTextCell
                 value={task.title}
-                editing={editingCell?.id === task._id && editingCell?.field === "title"}
+                editing={
+                  editingCell?.id === task._id && editingCell?.field === "title"
+                }
                 editValue={editValue}
                 onStart={() => {
                   setEditingCell({ id: task._id, field: "title" });
@@ -1930,7 +1996,10 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
             <button
               onClick={async () => {
                 if (!confirm("Delete this task?")) return;
-                await fetch(`${API_BASE_URL}/task/details/${task._id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+                await fetch(`${API_BASE_URL}/task/details/${task._id}`, {
+                  method: "DELETE",
+                  headers: { Authorization: `Bearer ${token}` },
+                });
                 fetchTasks();
               }}
               className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-400 -mr-1"
@@ -1953,18 +2022,428 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
                 className="h-6 w-full border-0 bg-transparent px-0 text-[12px] shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/40"
               />
               <div className="mt-3 flex items-center gap-2">
-                <Button size="sm" onClick={handleCreateTask} className="h-6 px-3 text-[10px]">Save</Button>
-                <button onClick={() => setShowNewTask(false)} className="px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground">Cancel</button>
+                <Button
+                  size="sm"
+                  onClick={handleCreateTask}
+                  className="h-6 px-3 text-[10px]"
+                >
+                  Save
+                </Button>
+                <button
+                  onClick={() => setShowNewTask(false)}
+                  className="px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
         )}
-        
+
         {tasks.length === 0 && !showNewTask && (
           <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
             <CheckSquare className="mb-2 h-6 w-6 opacity-20" />
             <p className="text-xs">No tasks yet</p>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Emails Tab ────────────────────────────────────────────────────────
+function EmailsTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
+  const [communications, setCommunications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDrafting, setIsDrafting] = useState(false);
+  const [integrationStatus, setIntegrationStatus] = useState<{
+    isConnected: boolean;
+    email?: string;
+  }>({ isConnected: false });
+  const token = getToken();
+
+  const fetchCommunications = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/communication/lead/${lead._id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setCommunications(data.communications || []);
+      }
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+    }
+  }, [lead._id, token]);
+
+  const fetchIntegrationStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/emailIntegration/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIntegrationStatus(data);
+      }
+    } catch {
+      /* silent */
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchCommunications();
+    fetchIntegrationStatus();
+  }, [fetchCommunications, fetchIntegrationStatus]);
+
+  async function handleConnect() {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/emailIntegration/google/auth-url`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        window.open(data.url, "_blank");
+      }
+    } catch {
+      alert("Failed to get auth URL");
+    }
+  }
+
+  if (isDrafting) {
+    return (
+      <EmailDraftForm
+        lead={lead}
+        onCancel={() => setIsDrafting(false)}
+        onSent={() => {
+          setIsDrafting(false);
+          fetchCommunications();
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="px-4 py-4 space-y-4">
+      {!integrationStatus.isConnected ? (
+        <div className="rounded-lg border border-dashed border-white/[0.08] p-6 text-center space-y-3">
+          <Mail className="mx-auto h-8 w-8 text-muted-foreground/20" />
+          <div className="space-y-1">
+            <p className="text-[12px] font-medium text-foreground">
+              Connect Gmail
+            </p>
+            <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
+              Connect your Gmail account to send emails directly from the CRM.
+            </p>
+          </div>
+          <Button size="sm" onClick={handleConnect} className="h-7 text-[11px]">
+            Connect Account
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <History className="h-3 w-3 text-muted-foreground/60" />
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                History
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setIsDrafting(true)}
+              className="h-7 gap-1.5 rounded-md px-3 text-[11px]"
+            >
+              <Send className="h-3 w-3" />
+              Draft Email
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/20" />
+              </div>
+            ) : communications.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-white/[0.08] p-8 text-center bg-white/[0.01]">
+                <p className="text-[11px] text-muted-foreground/40 italic">
+                  No email history available.
+                </p>
+                <p className="mt-1 text-[10px] text-muted-foreground/30">
+                  Click "Draft Email" to start a conversation.
+                </p>
+              </div>
+            ) : (
+              communications.map((comm) => (
+                <div
+                  key={comm._id}
+                  className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-2 relative overflow-hidden group"
+                >
+                  <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <Mail className="h-8 w-8" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[12px] font-semibold text-foreground truncate max-w-[200px]">
+                      {comm.subject}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground/40">
+                      {timeAgo(comm.sentAt)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+                    {comm.body}
+                  </p>
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <div className="flex h-3 w-3 items-center justify-center rounded-full bg-blue-500/20 text-blue-400">
+                      <User className="h-2 w-2" />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground/60">
+                      Sent by {comm.realtorId?.name || "You"}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Email Draft Form ──────────────────────────────────────────────────
+function EmailDraftForm({
+  lead,
+  onCancel,
+  onSent,
+}: {
+  lead: Lead;
+  onCancel: () => void;
+  onSent: () => void;
+}) {
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const token = getToken();
+
+  async function handleSend() {
+    if (!subject.trim() || !body.trim()) return;
+    setSending(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/emailIntegration/send`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          leadId: lead._id,
+          subject: subject.trim(),
+          body: body.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        onSent();
+      } else {
+        const error = await res.json();
+        alert(error.message || "Failed to send email");
+      }
+    } catch {
+      alert("Network error occurred");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="px-4 py-4 space-y-4 h-full flex flex-col">
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] font-semibold text-foreground">
+          Compose Email
+        </p>
+        <button
+          onClick={onCancel}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="flex-1 space-y-4">
+        <div className="space-y-1">
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            Recipient
+          </label>
+          <div className="flex items-center gap-2 rounded-md bg-white/[0.04] px-3 py-1.5 text-[12px] text-foreground border border-white/[0.06]">
+            <Mail className="h-3 w-3 text-muted-foreground/40" />
+            {lead.email}
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            Subject
+          </label>
+          <Input
+            placeholder="Re: Property Inquiry"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className="h-9 border-white/[0.08] bg-white/[0.04] px-3 text-[12px] shadow-none focus-visible:ring-1 focus-visible:ring-white/10"
+          />
+        </div>
+
+        <div className="space-y-1 flex-1 flex flex-col">
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            Message
+          </label>
+          <textarea
+            placeholder="Type your message here..."
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            className="w-full flex-1 min-h-[200px] rounded-lg border border-white/[0.08] bg-white/[0.04] p-3 text-[12px] outline-none placeholder:text-muted-foreground/40 focus:border-white/10 resize-none leading-relaxed"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 pt-4 border-t border-white/[0.06]">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+          disabled={sending}
+          className="h-8 text-[11px] hover:bg-white/[0.04]"
+        >
+          Discard
+        </Button>
+        <Button
+          size="sm"
+          onClick={handleSend}
+          disabled={sending || !subject.trim() || !body.trim()}
+          className="h-8 gap-2 rounded-md px-4 text-[11px]"
+        >
+          {sending ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Sending...
+            </>
+          ) : (
+            <>
+              <Send className="h-3 w-3" />
+              Send Email
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Timeline Tab ──────────────────────────────────────────────────────
+function TimelineTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const token = getToken();
+
+  const fetchActivities = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/activity/lead/${lead._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setActivities(data.activities || []);
+      }
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+    }
+  }, [lead._id, token]);
+
+  useEffect(() => {
+    fetchActivities();
+  }, [fetchActivities]);
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case "LEAD_CREATED":
+        return <UserPlus className="h-3 w-3 text-blue-400" />;
+      case "LEAD_UPDATED":
+      case "STATUS_CHANGED":
+      case "STAGE_CHANGED":
+        return <RefreshCw className="h-3 w-3 text-orange-400" />;
+      case "EMAIL_SENT":
+        return <Mail className="h-3 w-3 text-green-400" />;
+      case "NOTE_ADDED":
+        return <MessageSquare className="h-3 w-3 text-violet-400" />;
+      case "TASK_ADDED":
+        return <Circle className="h-3 w-3 text-yellow-400" />;
+      case "TASK_COMPLETED":
+        return <CheckCircle className="h-3 w-3 text-emerald-400" />;
+      default:
+        return <History className="h-3 w-3 text-muted-foreground" />;
+    }
+  };
+
+  return (
+    <div className="px-4 py-4 space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] font-semibold text-foreground">
+          Activity Log{" "}
+          <span className="ml-1 text-muted-foreground/60">{activities.length}</span>
+        </p>
+      </div>
+
+      <div className="relative space-y-4">
+        {/* Vertical line connecting events */}
+        {activities.length > 1 && (
+          <div className="absolute left-[13px] top-2 bottom-2 w-px bg-white/[0.06]" />
+        )}
+
+        {loading ? (
+          <p className="text-xs text-muted-foreground/40 text-center py-4">
+            Loading activity...
+          </p>
+        ) : activities.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-white/[0.08] p-8 text-center">
+            <p className="text-[11px] text-muted-foreground/40">
+              No activity recorded for this lead
+            </p>
+          </div>
+        ) : (
+          activities.map((activity, idx) => (
+            <div key={activity._id} className="relative flex gap-3 group">
+              {/* Icon container */}
+              <div className="relative z-10 flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-sidebar shadow-sm ring-4 ring-sidebar">
+                {getActivityIcon(activity.type)}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 pb-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[12px] font-medium text-foreground leading-tight">
+                    {activity.content}
+                  </p>
+                  <span className="text-[10px] whitespace-nowrap text-muted-foreground/40">
+                    {timeAgo(activity.createdAt)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[10px] text-muted-foreground/50">
+                    by {activity.realtorId?.name || "System"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>

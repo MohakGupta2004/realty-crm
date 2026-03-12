@@ -4,6 +4,8 @@ import { Membership } from "../memberships/memberships.model";
 import { ensureDefaultPipelines } from "../pipeline/pipeline.seed";
 import { PipelineStage } from "../pipelineStage/pipelineStage.model";
 import { CampaignBatch } from "../campaign/models/campaignBatch.model";
+import { ActivityService } from "../activity/activity.service";
+import { ActivityType } from "../activity/activity.types";
 
 
 export class LeadService {
@@ -45,7 +47,16 @@ export class LeadService {
         }
 
         const lead = new Lead(leadData);
-        return await lead.save();
+        const savedLead = await lead.save();
+
+        await ActivityService.logActivity({
+            leadId: savedLead._id.toString(),
+            realtorId: leadData.realtorId as string,
+            type: ActivityType.LEAD_CREATED,
+            content: `Lead created: ${savedLead.name}`
+        });
+
+        return savedLead;
     }
 
     static async getLeads(workspaceId: string, realtorId: string) {
@@ -103,11 +114,31 @@ export class LeadService {
             }
         }
 
-        return await Lead.findOneAndUpdate(
+        const updatedLead = await Lead.findOneAndUpdate(
             { realtorId, _id: leadId },
             leadData,
             { new: true, runValidators: true }
         ).populate("stageId", "colorIndex name").lean();
+
+        if (updatedLead) {
+            // Log update activity
+            const changes: string[] = [];
+            if (leadData.name) changes.push(`name to ${leadData.name}`);
+            if (leadData.email) changes.push(`email to ${leadData.email}`);
+            if (leadData.phone) changes.push(`phone to ${leadData.phone}`);
+            if (leadData.status) changes.push(`status to ${leadData.status}`);
+            
+            if (changes.length > 0) {
+                await ActivityService.logActivity({
+                    leadId: leadId,
+                    realtorId: realtorId,
+                    type: ActivityType.LEAD_UPDATED,
+                    content: `Updated ${changes.join(", ")}`
+                });
+            }
+        }
+
+        return updatedLead;
     }
 
     static async deleteLead(realtorId: string, leadId: string) {

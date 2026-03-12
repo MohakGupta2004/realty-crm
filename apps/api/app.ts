@@ -16,6 +16,8 @@ import workerModule from "./modules/worker/worker.module";
 import schedulerModule from "./modules/scheduler/scheduler.module";
 import taskModule from "./modules/task/task.module";
 import emailIntegrationModule from "./modules/emailIntegration/emailIntegration.module";
+import communicationModule from "./modules/communication/communication.module";
+import activityModule from "./modules/activity/activity.module";
 const app = express();
 
 // ── Global Middleware ─────────────────────────────────────────────────
@@ -51,5 +53,7 @@ app.use("/api/v1/task", taskModule);
 app.use("/api/v1/worker", workerModule);
 app.use("/api/v1/scheduler", schedulerModule);
 app.use("/api/v1/emailIntegration", emailIntegrationModule);
+app.use("/api/v1/communication", communicationModule);
+app.use("/api/v1/activity", activityModule);
 
 export default app;

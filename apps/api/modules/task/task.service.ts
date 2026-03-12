@@ -2,6 +2,8 @@ import { Task } from "./task.model";
 import type { ITaskCreate, ITaskUpdate } from "./task.types";
 import { Membership } from "../memberships/memberships.model";
 import { Lead } from "../lead/lead.model";
+import { ActivityService } from "../activity/activity.service";
+import { ActivityType } from "../activity/activity.types";
 
 export class TaskService {
   static async createTask(taskData: ITaskCreate) {
@@ -29,7 +31,21 @@ export class TaskService {
     }
 
     const task = new Task(taskData);
-    return await task.save();
+    const savedTask = await task.save();
+
+    // Log activity for each related lead
+    if (taskData.relations && taskData.relations.length > 0) {
+      for (const leadId of taskData.relations) {
+        await ActivityService.logActivity({
+          leadId: leadId.toString(),
+          realtorId: taskData.realtorId,
+          type: ActivityType.TASK_ADDED,
+          content: `Added task: ${taskData.title}`
+        });
+      }
+    }
+
+    return savedTask;
   }
 
   static async getTasks(workspaceId: string, realtorId: string) {
@@ -99,11 +115,27 @@ export class TaskService {
       }
     }
 
-    return await Task.findOneAndUpdate(
+    const updatedTask = await Task.findOneAndUpdate(
       { _id: taskId },
       taskData,
       { new: true, runValidators: true }
     ).lean();
+
+    if (updatedTask && taskData.status === "Done") {
+      // Log task completion for each related lead
+      if (updatedTask.relations && updatedTask.relations.length > 0) {
+        for (const leadId of updatedTask.relations) {
+          await ActivityService.logActivity({
+            leadId: leadId.toString(),
+            realtorId: realtorId,
+            type: ActivityType.TASK_COMPLETED,
+            content: `Completed task: ${updatedTask.title}`
+          });
+        }
+      }
+    }
+
+    return updatedTask;
   }
 
   static async deleteTask(realtorId: string, taskId: string) {

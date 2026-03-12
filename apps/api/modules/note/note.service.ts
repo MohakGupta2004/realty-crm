@@ -1,6 +1,8 @@
 import { Note } from "./note.model";
 import type { INoteCreate, INoteUpdate } from "./note.types";
 import { Membership } from "../memberships/memberships.model";
+import { ActivityService } from "../activity/activity.service";
+import { ActivityType } from "../activity/activity.types";
 
 export class NoteService {
   static async createNote(noteData: INoteCreate) {
@@ -14,7 +16,21 @@ export class NoteService {
     }
 
     const note = new Note(noteData);
-    return await note.save();
+    const savedNote = await note.save();
+
+    // Log activity for each related lead
+    if (noteData.relations && noteData.relations.length > 0) {
+      for (const leadId of noteData.relations) {
+        await ActivityService.logActivity({
+          leadId: leadId.toString(),
+          realtorId: noteData.realtorId,
+          type: ActivityType.NOTE_ADDED,
+          content: `Added a note: ${noteData.body.substring(0, 50)}${noteData.body.length > 50 ? "..." : ""}`
+        });
+      }
+    }
+
+    return savedNote;
   }
 
   static async getNotes(workspaceId: string, realtorId: string) {
