@@ -7,6 +7,7 @@ export const env = {
 
   // Database
   MONGO_URI: process.env.MONGO_URI!,
+  REDIS_URI: process.env.REDIS_URI || "redis://localhost:6379",
 
   // JWT
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET!,
@@ -32,6 +33,10 @@ export const env = {
   GCP_PROJECT_ID: process.env.GCP_PROJECT_ID,
   GCP_REGION: process.env.GCP_REGION,
   GCP_QUEUE_NAME: process.env.GCP_QUEUE_NAME,
+
+  // Gmail Pub/Sub
+  GMAIL_PUBSUB_TOPIC: process.env.GMAIL_PUBSUB_TOPIC || "gmail-push-notifications",
+  GMAIL_CONCURRENCY_LIMIT: Number(process.env.GMAIL_CONCURRENCY_LIMIT) || 5,
 
   // Backend / Worker
   BACKEND_URL: process.env.BACKEND_URL,
