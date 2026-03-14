@@ -7,6 +7,7 @@ export const env = {
 
   // Database
   MONGO_URI: process.env.MONGO_URI!,
+  REDIS_URI: process.env.REDIS_URI || "redis://localhost:6379",
 
   // JWT
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET!,

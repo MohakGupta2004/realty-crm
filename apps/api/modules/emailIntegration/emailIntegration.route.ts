@@ -1,8 +1,10 @@
 import { Router } from "express";
-import { getGoogleAuthUrl, getIntegrationStatus, sendEmailToLead } from "./emailIntegration.controller";
+import { getGoogleAuthUrl, getIntegrationStatus, receiveWebhook, sendEmailToLead } from "./emailIntegration.controller";
 import requireAuth from "../../shared/middleware/requireAuth";
 
 const router = Router();
+
+router.post('/webhook/receive', receiveWebhook as any);
 
 // Protected routes below
 router.use(requireAuth);
