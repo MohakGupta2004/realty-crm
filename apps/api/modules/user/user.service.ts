@@ -26,7 +26,7 @@ class UserService {
 
     async getAllUsers() {
         const users = await User.find().sort({ createdAt: -1 });
-        return users.map((user) => ({
+        return users.map((user: any) => ({
             id: user._id.toString(),
             name: user.name,
             email: user.email,
@@ -36,9 +36,20 @@ class UserService {
         }));
     }
 
+    async updateOnboardingData(userId: string, data: Partial<IUser>): Promise<IUser | null> {
+        return User.findByIdAndUpdate(
+            userId,
+            {
+                ...data,
+                onboardingComplete: true,
+            },
+            { new: true },
+        );
+    }
+
     toResponse(user: IUser): UserResponse {
         return {
-            id: user._id.toString(),
+            id: (user as any)._id.toString(),
             name: user.name,
             email: user.email,
             role: user.role,

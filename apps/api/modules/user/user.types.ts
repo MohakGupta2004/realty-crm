@@ -6,6 +6,22 @@ export interface IUser extends Document {
     password: string;
     role: "user" | "admin";
     tokenVersion: number;
+    firstName?: string;
+    lastName?: string;
+    businessName?: string;
+    licenseNumber?: string;
+    phoneNumber?: string;
+    address?: string;
+    professionalEmail?: string;
+    yearsInBusiness?: number;
+    calendlyLink?: string;
+    markets?: string[];
+    signatureImageUrl?: string;
+    brandLogoUrl?: string;
+    brokerageLogoUrl?: string;
+    brokerageName?: string;
+    subscriptionPlan?: 'free' | 'pro' | 'enterprise';
+    onboardingComplete?: boolean;
     createdAt: Date;
     updatedAt: Date;
 }

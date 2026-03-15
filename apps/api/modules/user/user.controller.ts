@@ -21,3 +21,32 @@ export async function getAllUsers(
         res.status(500).json({ message: "Internal server error" });
     }
 }
+
+export async function updateOnboarding(
+    req: Request,
+    res: Response,
+): Promise<void> {
+    try {
+        const authUser = (req as AuthenticatedRequest).user;
+        const userId = authUser._id.toString();
+        const onboardingData = req.body;
+
+        const updatedUser = await userService.updateOnboardingData(
+            userId,
+            onboardingData,
+        );
+
+        if (!updatedUser) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        res.status(200).json({
+            message: "Onboarding data updated successfully",
+            user: userService.toResponse(updatedUser),
+        });
+    } catch (error) {
+        console.error("Onboarding update error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
