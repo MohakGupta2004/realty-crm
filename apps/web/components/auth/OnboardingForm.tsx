@@ -36,6 +36,7 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState({
     firstName: "",
@@ -61,15 +62,75 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    // Clear error when user types
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const validateStep = (currentStep: number) => {
+    const newErrors: Record<string, string> = {};
+
+    if (currentStep === 1) {
+      if (!formData.firstName.trim()) newErrors.firstName = "Required";
+      if (!formData.lastName.trim()) newErrors.lastName = "Required";
+      if (!formData.businessName.trim()) newErrors.businessName = "Required";
+      if (!formData.licenseNumber.trim()) newErrors.licenseNumber = "Required";
+      if (!formData.address.trim()) newErrors.address = "Required";
+      if (!formData.calendlyLink.trim()) newErrors.calendlyLink = "Required";
+      if (formData.yearsInBusiness <= 0) newErrors.yearsInBusiness = "Required";
+      
+      const phoneRegex = /^\+?[\d\s-]{10,}$/;
+      if (!formData.phoneNumber.trim()) {
+        newErrors.phoneNumber = "Required";
+      } else if (!phoneRegex.test(formData.phoneNumber)) {
+        newErrors.phoneNumber = "Invalid format";
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!formData.professionalEmail.trim()) {
+        newErrors.professionalEmail = "Required";
+      } else if (!emailRegex.test(formData.professionalEmail)) {
+        newErrors.professionalEmail = "Invalid email";
+      }
+    } else if (currentStep === 2) {
+      if (formData.markets.length === 0) {
+        newErrors.markets = "Select at least one market";
+      }
+    } else if (currentStep === 3) {
+      if (!formData.brokerageName.trim()) newErrors.brokerageName = "Required";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (validateStep(step)) {
+      setStep(step + 1);
+    }
   };
 
   const handleMarketToggle = (city: string) => {
-    setFormData(prev => ({
-      ...prev,
-      markets: prev.markets.includes(city)
+    setFormData(prev => {
+      const updatedMarkets = prev.markets.includes(city)
         ? prev.markets.filter(c => c !== city)
-        : [...prev.markets, city]
-    }));
+        : [...prev.markets, city];
+      
+      if (updatedMarkets.length > 0 && errors.markets) {
+        setErrors(prevErrors => {
+          const newErrors = { ...prevErrors };
+          delete newErrors.markets;
+          return newErrors;
+        });
+      }
+      
+      return { ...prev, markets: updatedMarkets };
+    });
   };
 
   const triggerUpload = (field: string) => {
@@ -107,6 +168,15 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
   };
 
   const handleSubmit = async () => {
+    // Final comprehensive validation
+    if (!validateStep(1) || !validateStep(2) || !validateStep(3)) {
+      // Find the first step with errors and go there
+      if (!validateStep(1)) setStep(1);
+      else if (!validateStep(2)) setStep(2);
+      else if (!validateStep(3)) setStep(3);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const res = await fetch(`${API_BASE_URL}/user/onboarding`, {
@@ -135,71 +205,164 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ml-0.5">First Name</label>
         <div className="relative">
           <User className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
-          <Input name="firstName" value={formData.firstName} onChange={handleInputChange} placeholder="John" className="h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1" />
+          <Input 
+            name="firstName" 
+            value={formData.firstName} 
+            onChange={handleInputChange} 
+            placeholder="John" 
+            className={cn(
+              "h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1 transition-all",
+              errors.firstName && "border-destructive focus-visible:ring-destructive"
+            )} 
+          />
         </div>
+        {errors.firstName && <p className="text-[9px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-left-1">{errors.firstName}</p>}
       </div>
       <div className="space-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ml-0.5">Last Name</label>
         <div className="relative">
           <User className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
-          <Input name="lastName" value={formData.lastName} onChange={handleInputChange} placeholder="Doe" className="h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1" />
+          <Input 
+            name="lastName" 
+            value={formData.lastName} 
+            onChange={handleInputChange} 
+            placeholder="Doe" 
+            className={cn(
+              "h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1 transition-all",
+              errors.lastName && "border-destructive focus-visible:ring-destructive"
+            )} 
+          />
         </div>
+        {errors.lastName && <p className="text-[9px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-left-1">{errors.lastName}</p>}
       </div>
       <div className="space-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ml-0.5">Business Name</label>
         <div className="relative">
           <Briefcase className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
-          <Input name="businessName" value={formData.businessName} onChange={handleInputChange} placeholder="Realty Pros" className="h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1" />
+          <Input 
+            name="businessName" 
+            value={formData.businessName} 
+            onChange={handleInputChange} 
+            placeholder="Realty Pros" 
+            className={cn(
+              "h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1 transition-all",
+              errors.businessName && "border-destructive focus-visible:ring-destructive"
+            )} 
+          />
         </div>
+        {errors.businessName && <p className="text-[9px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-left-1">{errors.businessName}</p>}
       </div>
       <div className="space-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ml-0.5">License #</label>
         <div className="relative">
           <ShieldCheck className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
-          <Input name="licenseNumber" value={formData.licenseNumber} onChange={handleInputChange} placeholder="RE-123456" className="h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1" />
+          <Input 
+            name="licenseNumber" 
+            value={formData.licenseNumber} 
+            onChange={handleInputChange} 
+            placeholder="RE-123456" 
+            className={cn(
+              "h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1 transition-all",
+              errors.licenseNumber && "border-destructive focus-visible:ring-destructive"
+            )} 
+          />
         </div>
+        {errors.licenseNumber && <p className="text-[9px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-left-1">{errors.licenseNumber}</p>}
       </div>
       <div className="space-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ml-0.5">Phone</label>
         <div className="relative">
           <Phone className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
-          <Input name="phoneNumber" value={formData.phoneNumber} onChange={handleInputChange} placeholder="+1 555..." className="h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1" />
+          <Input 
+            name="phoneNumber" 
+            value={formData.phoneNumber} 
+            onChange={handleInputChange} 
+            placeholder="+1 555..." 
+            className={cn(
+              "h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1 transition-all",
+              errors.phoneNumber && "border-destructive focus-visible:ring-destructive"
+            )} 
+          />
         </div>
+        {errors.phoneNumber && <p className="text-[9px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-left-1">{errors.phoneNumber}</p>}
       </div>
       <div className="space-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ml-0.5">Email</label>
         <div className="relative">
           <Mail className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
-          <Input name="professionalEmail" value={formData.professionalEmail} onChange={handleInputChange} placeholder="john@..." className="h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1" />
+          <Input 
+            name="professionalEmail" 
+            value={formData.professionalEmail} 
+            onChange={handleInputChange} 
+            placeholder="john@..." 
+            className={cn(
+              "h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1 transition-all",
+              errors.professionalEmail && "border-destructive focus-visible:ring-destructive"
+            )} 
+          />
         </div>
+        {errors.professionalEmail && <p className="text-[9px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-left-1">{errors.professionalEmail}</p>}
       </div>
       <div className="space-y-1 col-span-2">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ml-0.5">Address</label>
         <div className="relative">
           <MapPin className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
-          <Input name="address" value={formData.address} onChange={handleInputChange} placeholder="123 St, City, Prov" className="h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1" />
+          <Input 
+            name="address" 
+            value={formData.address} 
+            onChange={handleInputChange} 
+            placeholder="123 St, City, Prov" 
+            className={cn(
+              "h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1 transition-all",
+              errors.address && "border-destructive focus-visible:ring-destructive"
+            )} 
+          />
         </div>
+        {errors.address && <p className="text-[9px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-left-1">{errors.address}</p>}
       </div>
       <div className="space-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ml-0.5">Years</label>
         <div className="relative">
           <Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
-          <Input name="yearsInBusiness" type="number" value={formData.yearsInBusiness} onChange={handleInputChange} className="h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1" />
+          <Input 
+            name="yearsInBusiness" 
+            type="number" 
+            value={formData.yearsInBusiness} 
+            onChange={handleInputChange} 
+            className={cn(
+              "h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1 transition-all",
+              errors.yearsInBusiness && "border-destructive focus-visible:ring-destructive"
+            )} 
+          />
         </div>
+        {errors.yearsInBusiness && <p className="text-[9px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-left-1">{errors.yearsInBusiness}</p>}
       </div>
       <div className="space-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ml-0.5">Calendly</label>
         <div className="relative">
           <ArrowRight className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
-          <Input name="calendlyLink" value={formData.calendlyLink} onChange={handleInputChange} placeholder="calendly..." className="h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1" />
+          <Input 
+            name="calendlyLink" 
+            value={formData.calendlyLink} 
+            onChange={handleInputChange} 
+            placeholder="calendly..." 
+            className={cn(
+              "h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1 transition-all",
+              errors.calendlyLink && "border-destructive focus-visible:ring-destructive"
+            )} 
+          />
         </div>
+        {errors.calendlyLink && <p className="text-[9px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-left-1">{errors.calendlyLink}</p>}
       </div>
     </div>
   );
 
   const renderStep2 = () => (
     <div className="space-y-3 animate-in fade-in slide-in-from-right-2 duration-300">
-      <p className="text-[11px] text-muted-foreground font-medium">Select your active markets:</p>
+      <div className="flex justify-between items-center">
+        <p className="text-[11px] text-muted-foreground font-medium">Select your active markets:</p>
+        {errors.markets && <p className="text-[10px] text-destructive font-bold animate-pulse">{errors.markets}</p>}
+      </div>
       <div className="flex flex-wrap gap-1.5">
         {CANADA_CITIES.map(city => (
           <button
@@ -225,8 +388,18 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ml-0.5">Brokerage Name</label>
         <div className="relative">
           <Briefcase className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground/70" />
-          <Input name="brokerageName" value={formData.brokerageName} onChange={handleInputChange} placeholder="Century 21" className="h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1" />
+          <Input 
+            name="brokerageName" 
+            value={formData.brokerageName} 
+            onChange={handleInputChange} 
+            placeholder="Century 21" 
+            className={cn(
+              "h-9 pl-8 bg-background/50 text-sm focus-visible:ring-1 transition-all",
+              errors.brokerageName && "border-destructive focus-visible:ring-destructive"
+            )} 
+          />
         </div>
+        {errors.brokerageName && <p className="text-[9px] text-destructive font-medium ml-1 animate-in fade-in slide-in-from-left-1">{errors.brokerageName}</p>}
       </div>
 
       <div className="grid grid-cols-3 gap-3 pt-1">
@@ -348,7 +521,7 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
           {step < 4 ? (
             <Button 
               size="sm"
-              onClick={() => setStep(step + 1)}
+              onClick={handleNext}
               className="text-xs h-10 px-6 font-bold bg-foreground text-background hover:bg-foreground/90 border-none shadow-lg transition-all active:scale-[0.98] rounded-xl"
             >
               Continue <ArrowRight className="ml-2 h-4 w-4" />
