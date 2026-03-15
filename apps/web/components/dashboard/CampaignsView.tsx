@@ -62,10 +62,17 @@ const TABLE_COLUMNS = [
   { key: "createdAt", label: "Created", icon: Clock },
 ];
 
-export default function CampaignsView({ workspaceId, userRole = "AGENT" }: CampaignsViewProps) {
+export default function CampaignsView({
+  workspaceId,
+  userRole = "AGENT",
+}: CampaignsViewProps) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  const [selectedCampaignIds, setSelectedCampaignIds] = useState<Set<string>>(new Set());
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(
+    null,
+  );
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [showNewForm, setShowNewForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showCanvasId, setShowCanvasId] = useState<string | null>(null);
@@ -148,7 +155,9 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
 
   // ── Row click ─────────────────────────────────────────────────────
   function handleRowClick(campaign: Campaign) {
-    setSelectedCampaign(selectedCampaign?._id === campaign._id ? null : campaign);
+    setSelectedCampaign(
+      selectedCampaign?._id === campaign._id ? null : campaign,
+    );
   }
 
   // ── Selection & Bulk Ops ──────────────────────────────────────────
@@ -169,7 +178,9 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
 
   async function handleBulkDelete() {
     if (
-      !confirm(`Are you sure you want to delete ${selectedCampaignIds.size} campaigns?`)
+      !confirm(
+        `Are you sure you want to delete ${selectedCampaignIds.size} campaigns?`,
+      )
     )
       return;
 
@@ -243,7 +254,8 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
                     type="checkbox"
                     className="h-3.5 w-3.5 rounded appearance-none border border-gray-400 bg-transparent checked:bg-blue-500"
                     checked={
-                      campaigns.length > 0 && selectedCampaignIds.size === campaigns.length
+                      campaigns.length > 0 &&
+                      selectedCampaignIds.size === campaigns.length
                     }
                     onChange={toggleAll}
                   />
@@ -275,7 +287,9 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
                     handleRowClick(campaign);
                   }}
                   className={`cursor-pointer border-b border-white/[0.04] transition-colors hover:bg-white/[0.03] ${
-                    selectedCampaign?._id === campaign._id ? "bg-white/[0.05]" : ""
+                    selectedCampaign?._id === campaign._id
+                      ? "bg-white/[0.05]"
+                      : ""
                   } ${selectedCampaignIds.has(campaign._id) ? "bg-blue-500/[0.02]" : ""}`}
                 >
                   {/* Select */}
@@ -292,7 +306,9 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
                   <td className="px-4 py-2.5 font-medium">{campaign.name}</td>
 
                   {/* Description */}
-                  <td className="px-4 py-2.5 text-muted-foreground truncate max-w-[200px]">{campaign.description || ""}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground truncate max-w-[200px]">
+                    {campaign.description || ""}
+                  </td>
 
                   {/* Status */}
                   <td className="px-4 py-2.5">
@@ -382,7 +398,8 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
                       No campaigns yet
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground/60">
-                      Click "+ New campaign" to create your first automated campaign.
+                      Click "+ New campaign" to create your first automated
+                      campaign.
                     </p>
                   </td>
                 </tr>
@@ -414,14 +431,16 @@ export default function CampaignsView({ workspaceId, userRole = "AGENT" }: Campa
       )}
 
       {/* ── Visual Canvas Overlay ───────────────────────────────────── */}
-      {showCanvasId && selectedCampaign && showCanvasId === selectedCampaign._id && (
-        <CampaignCanvas
-          campaignId={selectedCampaign._id}
-          campaignName={selectedCampaign.name}
-          workspaceId={workspaceId}
-          onClose={() => setShowCanvasId(null)}
-        />
-      )}
+      {showCanvasId &&
+        selectedCampaign &&
+        showCanvasId === selectedCampaign._id && (
+          <CampaignCanvas
+            campaignId={selectedCampaign._id}
+            campaignName={selectedCampaign.name}
+            workspaceId={workspaceId}
+            onClose={() => setShowCanvasId(null)}
+          />
+        )}
     </div>
   );
 }
@@ -438,12 +457,16 @@ function CampaignDetailPanel({
   onClose: () => void;
   onLaunchEditor: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"overview" | "leads" | "activity">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "leads" | "activity">(
+    "overview",
+  );
 
   return (
     <div className="w-[400px] border-l border-white/[0.06] bg-background p-5 flex flex-col h-full animate-in slide-in-from-right-8 duration-200">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-foreground">{campaign.name}</h2>
+        <h2 className="text-lg font-semibold text-foreground">
+          {campaign.name}
+        </h2>
         <button
           onClick={onClose}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
@@ -497,15 +520,21 @@ function CampaignDetailPanel({
                   {campaign.status || "draft"}
                 </span>
               </div>
-              
+
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Description</span>
-                <span className="text-sm truncate max-w-[200px] text-right">{campaign.description || "No description"}</span>
+                <span className="text-xs text-muted-foreground">
+                  Description
+                </span>
+                <span className="text-sm truncate max-w-[200px] text-right">
+                  {campaign.description || "No description"}
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Created</span>
-                <span className="text-sm">{new Date(campaign.createdAt).toLocaleDateString()}</span>
+                <span className="text-sm">
+                  {new Date(campaign.createdAt).toLocaleDateString()}
+                </span>
               </div>
             </div>
 
@@ -523,7 +552,12 @@ function CampaignDetailPanel({
                     Manage your visual email sequence.
                   </p>
                 </div>
-                <Button variant="outline" size="sm" className="mt-2 text-xs h-7" onClick={onLaunchEditor}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-xs h-7"
+                  onClick={onLaunchEditor}
+                >
                   Launch Editor
                 </Button>
               </div>
@@ -532,7 +566,10 @@ function CampaignDetailPanel({
         ) : activeTab === "leads" ? (
           <CampaignLeadsTab campaign={campaign} workspaceId={workspaceId} />
         ) : (
-          <CampaignEngagementTab campaign={campaign} workspaceId={workspaceId} />
+          <CampaignEngagementTab
+            campaign={campaign}
+            workspaceId={workspaceId}
+          />
         )}
       </div>
     </div>
@@ -560,7 +597,7 @@ function CampaignLeadsTab({
         `${API_BASE_URL}/lead/campaign/${campaign._id}/workspace/${workspaceId}`,
         {
           headers: { Authorization: `Bearer ${getToken()}` },
-        }
+        },
       );
       if (res.ok) {
         const data = await res.json();
@@ -578,12 +615,14 @@ function CampaignLeadsTab({
   }, [fetchLeads]);
 
   useEffect(() => {
-    // Fetch steps to resolve subjects
     const fetchSteps = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/campaign/${campaign._id}/steps`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
+        const res = await fetch(
+          `${API_BASE_URL}/campaign/${campaign._id}/steps`,
+          {
+            headers: { Authorization: `Bearer ${getToken()}` },
+          },
+        );
         if (res.ok) {
           const data = await res.json();
           setSteps(data.data || []);
@@ -595,10 +634,10 @@ function CampaignLeadsTab({
 
   if (selectedLead) {
     return (
-      <CampaignLeadTracking 
-        lead={selectedLead} 
-        steps={steps} 
-        onBack={() => setSelectedLead(null)} 
+      <CampaignLeadTracking
+        lead={selectedLead}
+        steps={steps}
+        onBack={() => setSelectedLead(null)}
       />
     );
   }
@@ -646,8 +685,8 @@ function CampaignLeadsTab({
                     <>
                       <span className="h-0.5 w-0.5 rounded-full bg-white/10" />
                       <div className="flex items-center gap-1 text-[10px] text-muted-foreground/40">
-                         <Mail className="h-2.5 w-2.5" />
-                         {lead.tracking.totalEmailsSent}
+                        <Mail className="h-2.5 w-2.5" />
+                        {lead.tracking.totalEmailsSent}
                       </div>
                     </>
                   )}
@@ -683,14 +722,22 @@ function CampaignLeadsTab({
 }
 
 // ── Campaign Lead Tracking / Timeline View ──────────────────────────────────
-function CampaignLeadTracking({ lead, steps, onBack }: { lead: any, steps: any[], onBack: () => void }) {
+function CampaignLeadTracking({
+  lead,
+  steps,
+  onBack,
+}: {
+  lead: any;
+  steps: any[];
+  onBack: () => void;
+}) {
   const getStepSubject = (stepId: string) => {
-    return steps.find(s => s._id === stepId)?.subject || "Unknown Step";
+    return steps.find((s) => s._id === stepId)?.subject || "Unknown Step";
   };
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-      <button 
+      <button
         onClick={onBack}
         className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
@@ -711,12 +758,20 @@ function CampaignLeadTracking({ lead, steps, onBack }: { lead: any, steps: any[]
 
         <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/[0.06]">
           <div className="space-y-0.5">
-            <p className="text-[10px] text-muted-foreground/40 font-bold uppercase">Sent</p>
-            <p className="text-lg font-bold text-foreground">{lead.tracking?.totalEmailsSent || 0}</p>
+            <p className="text-[10px] text-muted-foreground/40 font-bold uppercase">
+              Sent
+            </p>
+            <p className="text-lg font-bold text-foreground">
+              {lead.tracking?.totalEmailsSent || 0}
+            </p>
           </div>
           <div className="space-y-0.5">
-            <p className="text-[10px] text-muted-foreground/40 font-bold uppercase">Opens</p>
-            <p className="text-lg font-bold text-green-400">{lead.tracking?.totalOpenCount || 0}</p>
+            <p className="text-[10px] text-muted-foreground/40 font-bold uppercase">
+              Opens
+            </p>
+            <p className="text-lg font-bold text-green-400">
+              {lead.tracking?.totalOpenCount || 0}
+            </p>
           </div>
         </div>
       </div>
@@ -724,53 +779,73 @@ function CampaignLeadTracking({ lead, steps, onBack }: { lead: any, steps: any[]
       {/* Timeline */}
       <div className="space-y-4">
         <h5 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/40 flex items-center gap-2">
-           <HistoryIcon className="h-3.5 w-3.5" /> Engagement Timeline
+          <HistoryIcon className="h-3.5 w-3.5" /> Engagement Timeline
         </h5>
 
         <div className="relative space-y-6 pl-2">
-           {/* Vertical Line */}
-           <div className="absolute left-[11px] top-2 bottom-2 w-px bg-white/[0.06]" />
+          {/* Vertical Line */}
+          <div className="absolute left-[11px] top-2 bottom-2 w-px bg-white/[0.06]" />
 
-           {(lead.tracking?.stepsOpened || []).length === 0 ? (
-             <div className="rounded-lg border border-dashed border-white/[0.08] p-6 text-center">
-                <p className="text-[11px] text-muted-foreground/40">No engagement events yet.</p>
-             </div>
-           ) : (
-             lead.tracking.stepsOpened.sort((a: any, b: any) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime()).map((event: any, idx: number) => (
+          {(lead.tracking?.stepsOpened || []).length === 0 ? (
+            <div className="rounded-lg border border-dashed border-white/[0.08] p-6 text-center">
+              <p className="text-[11px] text-muted-foreground/40">
+                No engagement events yet.
+              </p>
+            </div>
+          ) : (
+            lead.tracking.stepsOpened
+              .sort(
+                (a: any, b: any) =>
+                  new Date(b.openedAt).getTime() -
+                  new Date(a.openedAt).getTime(),
+              )
+              .map((event: any, idx: number) => (
                 <div key={idx} className="relative flex gap-4 group">
                   <div className="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-green-500/30 bg-background shadow-sm ring-4 ring-background">
                     <MousePointer2 className="h-2.5 w-2.5 text-green-400" />
                   </div>
                   <div className="flex-1 pb-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[12px] font-semibold text-foreground">Email Opened</p>
-                      <span className="text-[10px] text-muted-foreground/40 font-medium">{timeAgo(event.openedAt)}</span>
+                      <p className="text-[12px] font-semibold text-foreground">
+                        Email Opened
+                      </p>
+                      <span className="text-[10px] text-muted-foreground/40 font-medium">
+                        {timeAgo(event.openedAt)}
+                      </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                      Subject: <span className="text-blue-400/80 italic">{getStepSubject(event.stepId)}</span>
+                      Subject:{" "}
+                      <span className="text-blue-400/80 italic">
+                        {getStepSubject(event.stepId)}
+                      </span>
                     </p>
                     <div className="flex items-center gap-1.5 mt-2">
-                       <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground/60">
-                         {event.openCount} {event.openCount === 1 ? 'Open' : 'Opens'}
-                       </span>
+                      <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground/60">
+                        {event.openCount}{" "}
+                        {event.openCount === 1 ? "Open" : "Opens"}
+                      </span>
                     </div>
                   </div>
                 </div>
-             ))
-           )}
+              ))
+          )}
 
-           {/* Initial "Sent" Event if any emails were sent */}
-           {lead.tracking?.totalEmailsSent > 0 && (
-              <div className="relative flex gap-4 group opacity-60">
-                <div className="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-background shadow-sm ring-4 ring-background">
-                  <Mail className="h-2.5 w-2.5 text-muted-foreground" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-[12px] font-medium text-foreground">Campaign Started</p>
-                  <p className="text-[10px] text-muted-foreground/40 mt-1">Lead enrolled in sequence</p>
-                </div>
+          {/* Initial "Sent" Event if any emails were sent */}
+          {lead.tracking?.totalEmailsSent > 0 && (
+            <div className="relative flex gap-4 group opacity-60">
+              <div className="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-background shadow-sm ring-4 ring-background">
+                <Mail className="h-2.5 w-2.5 text-muted-foreground" />
               </div>
-           )}
+              <div className="flex-1">
+                <p className="text-[12px] font-medium text-foreground">
+                  Campaign Started
+                </p>
+                <p className="text-[10px] text-muted-foreground/40 mt-1">
+                  Lead enrolled in sequence
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -794,12 +869,15 @@ function CampaignEngagementTab({
     setLoading(true);
     try {
       const [leadsRes, stepsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/lead/campaign/${campaign._id}/workspace/${workspaceId}`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        }),
+        fetch(
+          `${API_BASE_URL}/lead/campaign/${campaign._id}/workspace/${workspaceId}`,
+          {
+            headers: { Authorization: `Bearer ${getToken()}` },
+          },
+        ),
         fetch(`${API_BASE_URL}/campaign/${campaign._id}/steps`, {
           headers: { Authorization: `Bearer ${getToken()}` },
-        })
+        }),
       ]);
 
       if (leadsRes.ok && stepsRes.ok) {
@@ -817,13 +895,16 @@ function CampaignEngagementTab({
               ...open,
               leadName: lead.name,
               leadEmail: lead.email,
-              leadId: lead._id
+              leadId: lead._id,
             });
           });
         });
 
         // Sort by date descending
-        allEvents.sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime());
+        allEvents.sort(
+          (a, b) =>
+            new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime(),
+        );
         setEvents(allEvents);
       }
     } catch (err) {
@@ -838,25 +919,25 @@ function CampaignEngagementTab({
   }, [fetchCampaignData]);
 
   const getStepSubject = (stepId: string) => {
-    return steps.find(s => s._id === stepId)?.subject || "Unknown Step";
+    return steps.find((s) => s._id === stepId)?.subject || "Unknown Step";
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pr-1">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium flex items-center gap-2">
-           <HistoryIcon className="h-4 w-4 text-blue-400" />
-           Engagement Feed
+          <HistoryIcon className="h-4 w-4 text-blue-400" />
+          Engagement Feed
         </h3>
         <span className="text-[10px] bg-white/[0.04] px-2 py-0.5 rounded-full text-muted-foreground/60 font-bold uppercase">
-           {events.length} Events
+          {events.length} Events
         </span>
       </div>
 
       <div className="relative space-y-6 pl-2">
         {/* Vertical line connection */}
         {events.length > 0 && (
-           <div className="absolute left-[11px] top-2 bottom-2 w-px bg-white/[0.06]" />
+          <div className="absolute left-[11px] top-2 bottom-2 w-px bg-white/[0.06]" />
         )}
 
         {loading ? (
@@ -867,7 +948,9 @@ function CampaignEngagementTab({
           <div className="text-xs text-muted-foreground py-12 text-center bg-white/[0.02] rounded-xl border border-dashed border-white/[0.08]">
             <MousePointer2 className="h-8 w-8 text-muted-foreground/10 mx-auto mb-3" />
             <p>No engagement recorded yet.</p>
-            <p className="text-[10px] mt-1 opacity-50">Activity will appear here as leads interact with emails.</p>
+            <p className="text-[10px] mt-1 opacity-50">
+              Activity will appear here as leads interact with emails.
+            </p>
           </div>
         ) : (
           events.map((event, idx) => (
@@ -878,25 +961,31 @@ function CampaignEngagementTab({
               <div className="flex-1 pb-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[12px] font-bold text-foreground">
-                    {event.leadName} <span className="text-[10px] font-medium text-muted-foreground/40 ml-1">opened email</span>
+                    {event.leadName}{" "}
+                    <span className="text-[10px] font-medium text-muted-foreground/40 ml-1">
+                      opened email
+                    </span>
                   </p>
                   <span className="text-[10px] text-muted-foreground/40 font-medium whitespace-nowrap">
                     {timeAgo(event.openedAt)}
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground/60 mt-0.5 truncate">
-                  <span className="text-blue-400/60 mr-1 italic">Step:</span> 
+                  <span className="text-blue-400/60 mr-1 italic">Step:</span>
                   {getStepSubject(event.stepId)}
                 </p>
                 <div className="flex items-center gap-1.5 mt-2">
-                   <div className="flex items-center gap-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] font-bold text-green-400/80 border border-green-500/20">
-                     <MousePointer2 className="h-2.5 w-2.5" />
-                     {event.openCount} {event.openCount === 1 ? 'Open' : 'Opens'}
-                   </div>
-                   <span className="text-[9px] text-muted-foreground/30">•</span>
-                   <span className="text-[9px] text-muted-foreground/40 font-medium">
-                     {new Date(event.openedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                   </span>
+                  <div className="flex items-center gap-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] font-bold text-green-400/80 border border-green-500/20">
+                    <MousePointer2 className="h-2.5 w-2.5" />
+                    {event.openCount} {event.openCount === 1 ? "Open" : "Opens"}
+                  </div>
+                  <span className="text-[9px] text-muted-foreground/30">•</span>
+                  <span className="text-[9px] text-muted-foreground/40 font-medium">
+                    {new Date(event.openedAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
                 </div>
               </div>
             </div>
@@ -929,9 +1018,12 @@ function AddLeadsToCampaignModal({
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/lead/workspace/${workspaceId}`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
+        const res = await fetch(
+          `${API_BASE_URL}/lead/workspace/${workspaceId}`,
+          {
+            headers: { Authorization: `Bearer ${getToken()}` },
+          },
+        );
         if (res.ok) {
           const data = await res.json();
           setAllLeads(data.leads || []);
@@ -987,7 +1079,9 @@ function AddLeadsToCampaignModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-md rounded-xl border border-white/[0.08] bg-[#121212] p-6 shadow-2xl flex flex-col max-h-[80vh]">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Add Leads to Campaign</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            Add Leads to Campaign
+          </h2>
           <button
             onClick={onClose}
             className="text-muted-foreground transition hover:text-foreground"
