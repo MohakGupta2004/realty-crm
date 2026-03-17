@@ -17,6 +17,7 @@ import {
   Calendar,
   MoreVertical,
   User,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -221,7 +222,7 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
     } catch {
       /* silent */
     } finally {
-      setSubmitting(false);
+      setTimeout(() => setSubmitting(false), 500);
     }
   }
 
@@ -322,6 +323,15 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
             {titleForSubView} · {displayedTasks.length}
           </span>
         </div>
+
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-24 gap-3 bg-background/50 backdrop-blur-sm z-10">
+            <Loader2 className="h-8 w-6 animate-spin text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground/60 font-medium">
+              Loading tasks...
+            </p>
+          </div>
+        )}
 
         {/* Content area based on subView */}
         <div className="flex-1 overflow-x-auto overflow-y-auto">
@@ -490,8 +500,24 @@ function TasksTable({
               </td>
               <td className="px-4 py-2" colSpan={6}>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={handleCreate} disabled={submitting} className="h-7 text-[11px]">Save</Button>
-                  <button onClick={() => setShowNewRow(false)} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+                  <Button
+                    size="sm"
+                    onClick={handleCreate}
+                    disabled={submitting}
+                    className="h-7 text-[11px] min-w-[60px]"
+                  >
+                    {submitting ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Save"
+                    )}
+                  </Button>
+                  <button
+                    onClick={() => setShowNewRow(false)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </td>
             </tr>

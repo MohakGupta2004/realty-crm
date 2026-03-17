@@ -281,19 +281,24 @@ export default function SettingsView({ onClose }: SettingsViewProps) {
             </h2>
 
             <div className="flex items-center gap-6 pb-2">
-              <div className="h-20 w-20 rounded-2xl bg-accent/5 border border-border/10 flex items-center justify-center overflow-hidden group">
+              <div className="h-20 w-20 rounded-2xl bg-accent/5 border border-border/10 flex items-center justify-center overflow-hidden group relative">
+                {uploadingField === "brandLogoUrl" ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] z-10 transition-all">
+                    <Loader2 className="h-6 w-6 animate-spin text-white/70" />
+                  </div>
+                ) : null}
                 {formData.brandLogoUrl ? (
-                  <img 
-                    src={formData.brandLogoUrl} 
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105 duration-500" 
+                  <img
+                    src={formData.brandLogoUrl}
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105 duration-500"
                   />
                 ) : initialUserData?.avatarUrl ? (
-                  <img 
-                    src={initialUserData.avatarUrl} 
+                  <img
+                    src={initialUserData.avatarUrl}
                     referrerPolicy="no-referrer"
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105 duration-500" 
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105 duration-500"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = "none";
                     }}
                   />
                 ) : (
@@ -528,6 +533,11 @@ export default function SettingsView({ onClose }: SettingsViewProps) {
                   className="h-24 rounded-xl border-2 border-dashed border-border/20 bg-accent/5 flex flex-col items-center justify-center p-2 relative overflow-hidden group hover:border-border/40 transition-colors cursor-pointer"
                   onClick={() => triggerUpload("brokerageLogoUrl")}
                 >
+                  {uploadingField === "brokerageLogoUrl" && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] z-10 transition-all">
+                      <Loader2 className="h-6 w-6 animate-spin text-white/70" />
+                    </div>
+                  )}
                   {formData.brokerageLogoUrl ? (
                     <img
                       src={formData.brokerageLogoUrl}
@@ -547,6 +557,11 @@ export default function SettingsView({ onClose }: SettingsViewProps) {
                   className="h-24 rounded-xl border-2 border-dashed border-border/20 bg-accent/5 flex flex-col items-center justify-center p-2 relative overflow-hidden group hover:border-border/40 transition-colors cursor-pointer"
                   onClick={() => triggerUpload("signatureImageUrl")}
                 >
+                  {uploadingField === "signatureImageUrl" && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] z-10 transition-all">
+                      <Loader2 className="h-6 w-6 animate-spin text-white/70" />
+                    </div>
+                  )}
                   {formData.signatureImageUrl ? (
                     <img
                       src={formData.signatureImageUrl}

@@ -29,6 +29,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API_BASE_URL, getToken } from "@/lib/auth";
 import Papa from "papaparse";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { ContentLoader } from "@/components/ui/content-loader";
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface Pipeline {
@@ -196,6 +205,7 @@ export default function LeadsView({
   workspaceId,
   userRole = "AGENT",
 }: LeadsViewProps) {
+  const isOwner = userRole?.toUpperCase() === "OWNER";
   const [leads, setLeads] = useState<Lead[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -222,6 +232,7 @@ export default function LeadsView({
   const [newSource, setNewSource] = useState("");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
 
   const token = getToken();
 
@@ -268,10 +279,28 @@ export default function LeadsView({
     }
   }, [workspaceId, token]);
 
+  const fetchCurrentUser = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/user/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // The API might return user directly or inside an object
+        const user = data.user || data;
+        setCurrentUser(user);
+      }
+    } catch (err) {
+      console.error("Failed to fetch user:", err);
+    }
+  }, [token]);
+
   useEffect(() => {
     fetchLeads();
     fetchPipelines();
-  }, [fetchLeads, fetchPipelines]);
+    fetchCurrentUser();
+  }, [fetchLeads, fetchPipelines, fetchCurrentUser]);
 
   // Keep selected lead in sync after refetch
   useEffect(() => {
@@ -327,7 +356,8 @@ export default function LeadsView({
     } catch {
       setFormError("Network error");
     } finally {
-      setSubmitting(false);
+      // Small delay for better UX
+      setTimeout(() => setSubmitting(false), 500);
     }
   }
 
@@ -422,7 +452,7 @@ export default function LeadsView({
     } catch {
       alert("Failed to delete some leads.");
     } finally {
-      setSubmitting(false);
+      setTimeout(() => setSubmitting(false), 500);
     }
   }
 
@@ -430,16 +460,16 @@ export default function LeadsView({
   // RENDER
   // ══════════════════════════════════════════════════════════════════
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="relative flex flex-1 overflow-hidden">
       {/* ── Main table area ─────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col bg-background">
+      <div className="flex flex-1 flex-col bg-background min-w-0">
         {/* Header bar */}
-        <div className="flex items-center justify-between px-5 py-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-5 py-3 sm:py-2.5 gap-3 sm:gap-2">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
             <h1 className="text-sm font-semibold text-foreground">Leads</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {selectedLeadIds.size > 0 && (
               <Button
                 size="sm"
@@ -448,7 +478,11 @@ export default function LeadsView({
                 disabled={submitting}
                 className="h-7 gap-1.5 rounded-md px-3 text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30"
               >
-                Delete Selected ({selectedLeadIds.size})
+                {submitting ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <>Delete Selected ({selectedLeadIds.size})</>
+                )}
               </Button>
             )}
             <Button
@@ -458,7 +492,8 @@ export default function LeadsView({
               className="h-7 gap-1.5 rounded-md px-3 text-xs border-white/[0.08] hover:bg-white/[0.04]"
             >
               <Upload className="h-3 w-3" />
-              Batch Record Add
+              <span className="hidden xs:inline">Batch Record Add</span>
+              <span className="xs:hidden">Batch</span>
             </Button>
             <Button
               size="sm"
@@ -466,7 +501,8 @@ export default function LeadsView({
               className="h-7 gap-1.5 rounded-md px-3 text-xs"
             >
               <Plus className="h-3 w-3" />
-              New record
+              <span className="hidden xs:inline">New record</span>
+              <span className="xs:hidden">Add</span>
             </Button>
           </div>
         </div>
@@ -479,7 +515,7 @@ export default function LeadsView({
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-x-auto overflow-y-auto">
+        <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-white/10 sm:scrollbar-none">
           <table className="w-full min-w-[1200px] text-left text-[13px]">
             <thead>
               <tr className="border-b border-white/[0.06]">
@@ -494,7 +530,7 @@ export default function LeadsView({
                   />
                 </th>
                 {TABLE_COLUMNS.filter(
-                  (col) => col.key !== "realtor" || userRole === "OWNER",
+                  (col) => col.key !== "realtor" || isOwner,
                 ).map((col) => (
                   <th
                     key={col.key}
@@ -509,6 +545,15 @@ export default function LeadsView({
               </tr>
             </thead>
             <tbody>
+              {/* Loading State */}
+              {loading && (
+                <tr>
+                  <td colSpan={isOwner ? 9 : 8} className="py-12">
+                    <ContentLoader loading={loading} text="Fetching leads..." />
+                  </td>
+                </tr>
+              )}
+
               {/* ── Existing leads ────────────────────────────────── */}
               {leads.map((lead) => {
                 const isOwnLead =
@@ -623,7 +668,7 @@ export default function LeadsView({
                     </td>
 
                     {/* Realtor/Agent (Show only to OWNER) */}
-                    {userRole === "OWNER" && (
+                    {isOwner && (
                       <td className="px-4 py-2.5">
                         {lead.realtorId ? (
                           <div className="flex items-center gap-1.5 tooltip-trigger">
@@ -645,8 +690,7 @@ export default function LeadsView({
                       className="px-4 py-2.5"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {userRole === "OWNER" &&
-                      getRealtorId(lead) !== currentUserId ? (
+                      {isOwner && getRealtorId(lead) !== currentUserId ? (
                         <span className="text-muted-foreground/30 text-[12px]">
                           —
                         </span>
@@ -694,117 +738,39 @@ export default function LeadsView({
               })}
 
               {/* ── "+ Add New" row — appears BELOW existing rows ─── */}
-              {!showNewForm ? (
-                <tr>
-                  <td colSpan={8}>
-                    <button
-                      onClick={() => setShowNewForm(true)}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] text-muted-foreground/60 transition-colors hover:bg-white/[0.02] hover:text-muted-foreground"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Add New
-                    </button>
-                  </td>
-                </tr>
-              ) : (
-                <tr className="border-b border-white/[0.06] bg-white/[0.02]">
-                  {/* Checkbox Placeholder */}
-                  <td className="px-4 py-2 w-10"></td>
-                  {/* Name */}
-                  <td className="px-4 py-2">
-                    <Input
-                      placeholder="Lead name"
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                      className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
-                      autoFocus
-                    />
-                  </td>
-                  {/* Email */}
-                  <td className="px-4 py-2">
-                    <Input
-                      placeholder="email@example.com"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                      className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
-                    />
-                  </td>
-                  {/* Phone with country code */}
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-1">
-                      <CountryCodeSelect
-                        value={newCountryCode}
-                        onChange={setNewCountryCode}
-                      />
-                      <Input
-                        placeholder="Phone number"
-                        value={newPhone}
-                        onChange={(e) => setNewPhone(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                        className="h-8 flex-1 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
-                      />
-                    </div>
-                  </td>
-                  {/* City */}
-                  <td className="px-4 py-2">
-                    <Input
-                      placeholder="City"
-                      value={newCity}
-                      onChange={(e) => setNewCity(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                      className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
-                    />
-                  </td>
-                  {/* Status (defaults to new) */}
-                  <td className="px-4 py-2">
-                    <span className="inline-block rounded-full bg-blue-500/15 px-2.5 py-1 text-[11px] text-blue-400">
-                      new
-                    </span>
-                  </td>
-                  {/* Source */}
-                  <td className="px-4 py-2">
-                    <Input
-                      placeholder="Source"
-                      value={newSource}
-                      onChange={(e) => setNewSource(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                      className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
-                    />
-                  </td>
-                  {/* Actions */}
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={handleCreate}
-                        disabled={submitting}
-                        className="h-7 rounded-md px-3 text-[11px]"
-                      >
-                        {submitting ? "…" : "Save"}
-                      </Button>
-                      <button
-                        onClick={() => setShowNewForm(false)}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
+              <tr>
+                <td colSpan={isOwner ? 9 : 8}>
+                  <button
+                    onClick={() => setShowNewForm(true)}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] text-muted-foreground/60 transition-colors hover:bg-white/[0.02] hover:text-muted-foreground"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add New record
+                  </button>
+                </td>
+              </tr>
 
               {/* Empty state */}
               {!loading && leads.length === 0 && !showNewForm && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      No leads yet
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground/60">
-                      Click "+ New record" to add your first lead.
-                    </p>
+                  <td colSpan={isOwner ? 9 : 8} className="px-4 py-16 text-center">
+                    {loading ? (
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground/60">
+                          Fetching leads...
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          No leads yet
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground/60">
+                          Click "+ New record" to add your first lead.
+                        </p>
+                      </>
+                    )}
                   </td>
                 </tr>
               )}
@@ -825,6 +791,10 @@ export default function LeadsView({
       </div>
 
       {/* ── Detail panel (right side) ───────────────────────────────── */}
+      {selectedLead && (
+        <div className="absolute inset-0 z-40 bg-black/40 md:hidden" onClick={() => setSelectedLead(null)} />
+      )}
+
       {selectedLead && (
         <DetailPanel
           lead={selectedLead}
@@ -847,6 +817,92 @@ export default function LeadsView({
         onClose={() => setShowBatchModal(false)}
         onSuccess={fetchLeads}
       />
+
+      {/* ── New Lead Dialog ─────────────────────────────────────────── */}
+      <Dialog open={showNewForm} onOpenChange={setShowNewForm}>
+        <DialogContent className="sm:max-w-[425px] duration-0 animate-none">
+          <DialogHeader>
+            <DialogTitle>Add New Lead</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                placeholder="Lead name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="bg-white/[0.04]"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                placeholder="email@example.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="bg-white/[0.04]"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Phone</Label>
+              <div className="flex gap-2">
+                <CountryCodeSelect
+                  value={newCountryCode}
+                  onChange={setNewCountryCode}
+                />
+                <Input
+                  id="phone"
+                  placeholder="Phone number"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  className="bg-white/[0.04]"
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                placeholder="City"
+                value={newCity}
+                onChange={(e) => setNewCity(e.target.value)}
+                className="bg-white/[0.04]"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="source">Source</Label>
+              <Input
+                id="source"
+                placeholder="Source"
+                value={newSource}
+                onChange={(e) => setNewSource(e.target.value)}
+                className="bg-white/[0.04]"
+              />
+            </div>
+            {formError && (
+              <p className="text-xs text-destructive">{formError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setShowNewForm(false)}
+              className="text-muted-foreground"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={submitting}
+            >
+              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Create Lead
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1139,7 +1195,7 @@ function DetailPanel({
   ];
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-l border-white/[0.06] bg-sidebar">
+    <div className="fixed inset-y-0 right-0 z-50 w-[85%] sm:w-80 flex flex-col border-l border-white/[0.06] bg-sidebar md:relative md:w-80 md:inset-auto">
       {/* Panel header */}
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button
@@ -2228,9 +2284,11 @@ function EmailsTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
                       {timeAgo(comm.receivedAt)}
                     </span>
                   </div>
-                  <div 
+                  <div
                     className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2 mt-1 opacity-80"
-                    dangerouslySetInnerHTML={{ __html: comm.body?.replace(/<[^>]*>?/gm, ' ') }} 
+                    dangerouslySetInnerHTML={{
+                      __html: comm.body?.replace(/<[^>]*>?/gm, " "),
+                    }}
                   />
                 </div>
               ))
@@ -2371,7 +2429,13 @@ function EmailDraftForm({
 }
 
 // ── Timeline Tab ──────────────────────────────────────────────────────
-function TimelineTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
+function TimelineTab({
+  lead,
+  workspaceId,
+}: {
+  lead: Lead;
+  workspaceId: string;
+}) {
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const token = getToken();
@@ -2422,7 +2486,9 @@ function TimelineTab({ lead, workspaceId }: { lead: Lead; workspaceId: string })
       <div className="flex items-center justify-between">
         <p className="text-[13px] font-semibold text-foreground">
           Activity Log{" "}
-          <span className="ml-1 text-muted-foreground/60">{activities.length}</span>
+          <span className="ml-1 text-muted-foreground/60">
+            {activities.length}
+          </span>
         </p>
       </div>
 

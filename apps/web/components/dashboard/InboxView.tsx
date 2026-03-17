@@ -108,9 +108,15 @@ export default function InboxView() {
             variant="outline" 
             size="sm" 
             onClick={fetchEmails} 
-            className="h-8 gap-2 border-white/[0.08] hover:bg-white/[0.04] text-[11px] font-bold uppercase tracking-wider"
+            disabled={loading}
+            className="h-8 gap-2 border-white/[0.08] hover:bg-white/[0.04] text-[11px] font-bold uppercase tracking-wider min-w-[100px]"
           >
-            <History className="h-3.5 w-3.5" /> Refresh
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <History className="h-3.5 w-3.5" />
+            )}
+            {loading ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>

@@ -82,7 +82,7 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
       if (!formData.licenseNumber.trim()) newErrors.licenseNumber = "Required";
       if (!formData.address.trim()) newErrors.address = "Required";
       if (!formData.calendlyLink.trim()) newErrors.calendlyLink = "Required";
-      if (formData.yearsInBusiness <= 0) newErrors.yearsInBusiness = "Required";
+      if (formData.yearsInBusiness < 0) newErrors.yearsInBusiness = "Cannot be negative";
       
       const phoneRegex = /^\+?[\d\s-]{10,}$/;
       if (!formData.phoneNumber.trim()) {
