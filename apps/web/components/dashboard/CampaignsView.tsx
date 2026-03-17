@@ -18,11 +18,13 @@ import {
   MousePointer2,
   CheckCircle2,
   History as HistoryIcon,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API_BASE_URL, getToken } from "@/lib/auth";
 import CampaignCanvas from "./CampaignCanvas";
+import { ContentLoader } from "@/components/ui/content-loader";
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface Campaign {
@@ -197,7 +199,7 @@ export default function CampaignsView({
     } catch {
       alert("Failed to delete some campaigns.");
     } finally {
-      setSubmitting(false);
+      setTimeout(() => setSubmitting(false), 500);
     }
   }
 
@@ -223,7 +225,11 @@ export default function CampaignsView({
                 disabled={submitting}
                 className="h-7 gap-1.5 rounded-md px-3 text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30"
               >
-                Delete Selected ({selectedCampaignIds.size})
+                {submitting ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <>Delete Selected ({selectedCampaignIds.size})</>
+                )}
               </Button>
             )}
             <Button
@@ -274,6 +280,15 @@ export default function CampaignsView({
               </tr>
             </thead>
             <tbody>
+              {/* Loading State */}
+              {loading && (
+                <tr>
+                  <td colSpan={5} className="py-12">
+                    <ContentLoader loading={loading} text="Fetching campaigns..." />
+                  </td>
+                </tr>
+              )}
+
               {/* ── Existing campaigns ────────────────────────────────── */}
               {campaigns.map((campaign) => (
                 <tr
@@ -377,7 +392,11 @@ export default function CampaignsView({
                         disabled={submitting}
                         className="h-7 rounded-md px-3 text-[11px]"
                       >
-                        {submitting ? "…" : "Save"}
+                        {submitting ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          "Save"
+                        )}
                       </Button>
                       <button
                         onClick={() => setShowNewForm(false)}
@@ -394,13 +413,24 @@ export default function CampaignsView({
               {!loading && campaigns.length === 0 && !showNewForm && (
                 <tr>
                   <td colSpan={5} className="px-4 py-16 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      No campaigns yet
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground/60">
-                      Click "+ New campaign" to create your first automated
-                      campaign.
-                    </p>
+                    {loading ? (
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground/60">
+                          Fetching campaigns...
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          No campaigns yet
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground/60">
+                          Click "+ New campaign" to create your first automated
+                          campaign.
+                        </p>
+                      </>
+                    )}
                   </td>
                 </tr>
               )}
@@ -657,8 +687,9 @@ function CampaignLeadsTab({
       </div>
 
       {loading ? (
-        <div className="text-xs text-muted-foreground py-8 text-center bg-white/[0.02] rounded-md border border-white/[0.04]">
-          Loading leads...
+        <div className="flex flex-col items-center justify-center py-12 bg-white/[0.02] rounded-md border border-white/[0.04] gap-2">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
+          <p className="text-xs text-muted-foreground/60">Loading leads...</p>
         </div>
       ) : leads.length === 0 ? (
         <div className="text-xs text-muted-foreground py-8 text-center bg-white/[0.02] rounded-md border border-white/[0.04]">
@@ -940,8 +971,11 @@ function CampaignEngagementTab({
         )}
 
         {loading ? (
-          <div className="text-xs text-muted-foreground py-8 text-center bg-white/[0.02] rounded-md border border-white/[0.04]">
-            Loading activity...
+          <div className="flex flex-col items-center justify-center py-12 bg-white/[0.02] rounded-xl border border-white/[0.04] gap-2">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
+            <p className="text-xs text-muted-foreground/60">
+              Loading activity...
+            </p>
           </div>
         ) : events.length === 0 ? (
           <div className="text-xs text-muted-foreground py-12 text-center bg-white/[0.02] rounded-xl border border-dashed border-white/[0.08]">
@@ -1075,7 +1109,7 @@ function AddLeadsToCampaignModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-md rounded-xl border border-white/[0.08] bg-[#121212] p-6 shadow-2xl flex flex-col max-h-[80vh]">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">
@@ -1142,8 +1176,11 @@ function AddLeadsToCampaignModal({
             size="sm"
             onClick={submit}
             disabled={submitting || selectedIds.size === 0}
-            className="h-8 text-xs"
+            className="h-8 text-xs min-w-[100px]"
           >
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+            ) : null}
             {submitting ? "Adding..." : `Add ${selectedIds.size} Leads`}
           </Button>
         </div>

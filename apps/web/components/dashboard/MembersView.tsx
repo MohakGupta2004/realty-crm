@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Link as LinkIcon, Users, Check } from "lucide-react";
+import { Link as LinkIcon, Users, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL, getToken } from "@/lib/auth";
 
@@ -16,6 +16,7 @@ export default function MembersView({ workspaceId, userRole }: { workspaceId: st
   const [loading, setLoading] = useState(true);
   const [inviteLink, setInviteLink] = useState("");
   const [copied, setCopied] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
   const token = getToken();
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function MembersView({ workspaceId, userRole }: { workspaceId: st
   }, [workspaceId, token]);
 
   const generateLink = async () => {
+    setGeneratingLink(true);
     try {
       const res = await fetch(`${API_BASE_URL}/memberships/invite/${workspaceId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -52,6 +54,8 @@ export default function MembersView({ workspaceId, userRole }: { workspaceId: st
       }
     } catch {
       alert("Error generating link.");
+    } finally {
+      setGeneratingLink(false);
     }
   };
 
@@ -81,7 +85,13 @@ export default function MembersView({ workspaceId, userRole }: { workspaceId: st
                   <span className="text-sm text-white/70 truncate flex-1">{inviteLink}</span>
                 </div>
               ) : (
-                <Button onClick={generateLink} variant="outline" className="border-white/[0.08] hover:bg-white/[0.04]">
+                <Button 
+                  onClick={generateLink} 
+                  variant="outline" 
+                  disabled={generatingLink}
+                  className="border-white/[0.08] hover:bg-white/[0.04]"
+                >
+                  {generatingLink ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Generate Link
                 </Button>
               )}
@@ -107,7 +117,10 @@ export default function MembersView({ workspaceId, userRole }: { workspaceId: st
         <div>
           <h2 className="text-lg font-medium mb-4">Members</h2>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading members...</p>
+            <div className="flex items-center gap-2 py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Loading members...</p>
+            </div>
           ) : (
             <div className="rounded-xl border border-white/[0.08] overflow-hidden">
               <table className="w-full text-left text-sm">

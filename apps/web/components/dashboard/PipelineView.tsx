@@ -24,6 +24,7 @@ import {
   User,
   Kanban,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -180,7 +181,6 @@ export default function PipelineView({ workspaceId }: PipelineViewProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── Fetch pipelines ─────────────────────────────────────────────────
   const fetchPipelines = useCallback(async () => {
     if (!workspaceId) return;
     try {
@@ -406,8 +406,9 @@ export default function PipelineView({ workspaceId }: PipelineViewProps) {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-background">
-        <p className="animate-pulse text-sm text-muted-foreground">
+      <div className="flex flex-1 flex-col items-center justify-center bg-background gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground/60 font-medium">
           Loading pipelines…
         </p>
       </div>
@@ -612,8 +613,9 @@ export default function PipelineView({ workspaceId }: PipelineViewProps) {
 
         {/* ── Kanban board ──────────────────────────────────────────── */}
         {boardLoading ? (
-          <div className="flex flex-1 items-center justify-center">
-            <p className="animate-pulse text-sm text-muted-foreground">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground/60 font-medium">
               Loading board…
             </p>
           </div>
@@ -1417,8 +1419,11 @@ function CreatePipelineModal({
             size="sm"
             onClick={handleCreate}
             disabled={creating}
-            className="h-8 rounded-md px-5 text-[12px]"
+            className="h-8 rounded-md px-5 text-[12px] min-w-[120px]"
           >
+            {creating ? (
+              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+            ) : null}
             {creating ? "Creating…" : "Create Pipeline"}
           </Button>
         </div>
@@ -1594,8 +1599,11 @@ function CreateLeadModal({
             size="sm"
             onClick={handleCreate}
             disabled={creating}
-            className="h-8 rounded-md px-5 text-[12px]"
+            className="h-8 rounded-md px-5 text-[12px] min-w-[100px]"
           >
+            {creating ? (
+              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+            ) : null}
             {creating ? "Adding…" : "Add Lead"}
           </Button>
         </div>

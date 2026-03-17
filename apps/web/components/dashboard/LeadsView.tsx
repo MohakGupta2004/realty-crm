@@ -37,6 +37,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { ContentLoader } from "@/components/ui/content-loader";
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface Pipeline {
@@ -355,7 +356,8 @@ export default function LeadsView({
     } catch {
       setFormError("Network error");
     } finally {
-      setSubmitting(false);
+      // Small delay for better UX
+      setTimeout(() => setSubmitting(false), 500);
     }
   }
 
@@ -450,7 +452,7 @@ export default function LeadsView({
     } catch {
       alert("Failed to delete some leads.");
     } finally {
-      setSubmitting(false);
+      setTimeout(() => setSubmitting(false), 500);
     }
   }
 
@@ -476,7 +478,11 @@ export default function LeadsView({
                 disabled={submitting}
                 className="h-7 gap-1.5 rounded-md px-3 text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30"
               >
-                Delete Selected ({selectedLeadIds.size})
+                {submitting ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <>Delete Selected ({selectedLeadIds.size})</>
+                )}
               </Button>
             )}
             <Button
@@ -539,6 +545,15 @@ export default function LeadsView({
               </tr>
             </thead>
             <tbody>
+              {/* Loading State */}
+              {loading && (
+                <tr>
+                  <td colSpan={isOwner ? 9 : 8} className="py-12">
+                    <ContentLoader loading={loading} text="Fetching leads..." />
+                  </td>
+                </tr>
+              )}
+
               {/* ── Existing leads ────────────────────────────────── */}
               {leads.map((lead) => {
                 const isOwnLead =
@@ -739,12 +754,23 @@ export default function LeadsView({
               {!loading && leads.length === 0 && !showNewForm && (
                 <tr>
                   <td colSpan={isOwner ? 9 : 8} className="px-4 py-16 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      No leads yet
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground/60">
-                      Click "+ New record" to add your first lead.
-                    </p>
+                    {loading ? (
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground/60">
+                          Fetching leads...
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          No leads yet
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground/60">
+                          Click "+ New record" to add your first lead.
+                        </p>
+                      </>
+                    )}
                   </td>
                 </tr>
               )}
@@ -794,7 +820,7 @@ export default function LeadsView({
 
       {/* ── New Lead Dialog ─────────────────────────────────────────── */}
       <Dialog open={showNewForm} onOpenChange={setShowNewForm}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] duration-0 animate-none">
           <DialogHeader>
             <DialogTitle>Add New Lead</DialogTitle>
           </DialogHeader>

@@ -18,7 +18,7 @@ import {
   tryRefreshToken,
   API_BASE_URL,
 } from "@/lib/auth";
-import { Menu } from "lucide-react";
+import { Menu, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // ── Dashboard Page ────────────────────────────────────────────────────
@@ -108,8 +108,9 @@ function DashboardContent() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <p className="animate-pulse text-sm text-muted-foreground">
+      <div className="flex h-screen flex-col items-center justify-center bg-background gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground/60 font-medium">
           Loading workspace…
         </p>
       </div>
@@ -190,8 +191,9 @@ export default function DashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-screen items-center justify-center bg-background">
-          <p className="animate-pulse text-sm text-muted-foreground">
+        <div className="flex h-screen flex-col items-center justify-center bg-background gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground/60 font-medium">
             Loading dashboard…
           </p>
         </div>

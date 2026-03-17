@@ -12,6 +12,7 @@ import {
   Clock,
   Trash2,
   User,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -143,7 +144,7 @@ export default function NotesView({ workspaceId }: NotesViewProps) {
     } catch {
       /* silent */
     } finally {
-      setSubmitting(false);
+      setTimeout(() => setSubmitting(false), 500);
     }
   }
 
@@ -355,9 +356,13 @@ export default function NotesView({ workspaceId }: NotesViewProps) {
                       size="sm"
                       onClick={handleCreate}
                       disabled={submitting}
-                      className="h-7 text-[11px]"
+                      className="h-7 text-[11px] min-w-[60px]"
                     >
-                      Save
+                      {submitting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "Save"
+                      )}
                     </Button>
                     <button
                       onClick={() => setShowNewRow(false)}
@@ -372,14 +377,23 @@ export default function NotesView({ workspaceId }: NotesViewProps) {
 
             {!showNewRow && (
               <tr>
-                <td colSpan={7}>
-                  <button
-                    onClick={() => setShowNewRow(true)}
-                    className="flex w-full items-center gap-2 px-14 py-2.5 text-[13px] text-muted-foreground/60 transition-colors hover:bg-white/[0.02]"
-                  >
-                    <Plus className="h-3 w-3" />
-                    Add New
-                  </button>
+                <td colSpan={7} className="px-4 py-16 text-center">
+                  {loading ? (
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
+                      <p className="text-sm text-muted-foreground/60">
+                        Fetching notes...
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowNewRow(true)}
+                      className="flex w-full items-center gap-2 px-10 py-2.5 text-[13px] text-muted-foreground/60 transition-colors hover:bg-white/[0.02]"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add New
+                    </button>
+                  )}
                 </td>
               </tr>
             )}
