@@ -18,6 +18,8 @@ import {
   tryRefreshToken,
   API_BASE_URL,
 } from "@/lib/auth";
+import { Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // ── Dashboard Page ────────────────────────────────────────────────────
 // Protected page:
@@ -34,6 +36,7 @@ function DashboardContent() {
 
   const initialView = (searchParams.get("view") as ActiveViewType) || "leads";
   const [activeView, setActiveView] = useState<ActiveViewType>(initialView);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const activeWorkspace = workspaces.find((w) => w._id === activeWorkspaceId);
 
@@ -115,16 +118,32 @@ function DashboardContent() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      {activeView !== "settings" && (
-        <Sidebar
-          workspaces={workspaces}
-          activeWorkspaceId={activeWorkspaceId}
-          onWorkspaceChange={setActiveWorkspaceId}
-          refreshWorkspaces={refreshWorkspaces}
-          activeView={activeView}
-          onViewChange={setActiveView}
-        />
-      )}
+      {/* Mobile Header with Hamburger */}
+      <div className="fixed top-0 left-0 z-30 flex h-12 w-full items-center border-b border-white/[0.06] bg-background px-4 lg:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground"
+          onClick={() => setIsSidebarOpen(true)}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
+
+      <div className="flex h-full w-full pt-12 lg:pt-0">
+        {activeView !== "settings" && (
+          <Sidebar
+            workspaces={workspaces}
+            activeWorkspaceId={activeWorkspaceId}
+            onWorkspaceChange={setActiveWorkspaceId}
+            refreshWorkspaces={refreshWorkspaces}
+            activeView={activeView}
+            onViewChange={setActiveView}
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+          />
+        )}
+        <div className="flex-1 flex flex-col min-w-0">
       {activeView === "leads" ? (
         <LeadsView
           workspaceId={activeWorkspaceId}
@@ -161,7 +180,9 @@ function DashboardContent() {
       ) : activeView === "settings" ? (
         <SettingsView workspace={activeWorkspace} onClose={() => setActiveView("leads")} />
       ) : null}
+      </div>
     </div>
+  </div>
   );
 }
 

@@ -450,16 +450,16 @@ export default function LeadsView({
   // RENDER
   // ══════════════════════════════════════════════════════════════════
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="relative flex flex-1 overflow-hidden">
       {/* ── Main table area ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col bg-background">
         {/* Header bar */}
-        <div className="flex items-center justify-between px-5 py-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-5 py-3 sm:py-2.5 gap-3 sm:gap-2">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
             <h1 className="text-sm font-semibold text-foreground">Leads</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {selectedLeadIds.size > 0 && (
               <Button
                 size="sm"
@@ -887,6 +887,10 @@ export default function LeadsView({
 
       {/* ── Detail panel (right side) ───────────────────────────────── */}
       {selectedLead && (
+        <div className="absolute inset-0 z-40 bg-black/40 md:hidden" onClick={() => setSelectedLead(null)} />
+      )}
+
+      {selectedLead && (
         <DetailPanel
           lead={selectedLead}
           workspaceId={workspaceId}
@@ -1200,7 +1204,7 @@ function DetailPanel({
   ];
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-l border-white/[0.06] bg-sidebar">
+    <div className="fixed inset-y-0 right-0 z-50 w-[85%] sm:w-80 flex flex-col border-l border-white/[0.06] bg-sidebar md:relative md:w-80 md:inset-auto">
       {/* Panel header */}
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button

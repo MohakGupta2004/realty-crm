@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, ChevronDown, LogOut, Sun, Moon, Kanban, StickyNote, CheckSquare, ListTodo, Columns3, UserSquare2, Check, UserCircle, UserPlus, PlusSquare, Megaphone, Settings, Inbox } from "lucide-react";
+import { Users, ChevronDown, LogOut, Sun, Moon, Kanban, StickyNote, CheckSquare, ListTodo, Columns3, UserSquare2, Check, UserCircle, UserPlus, PlusSquare, Megaphone, Settings, Inbox, Menu, X as CloseIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -35,6 +35,8 @@ interface SidebarProps {
   refreshWorkspaces: (newWorkspaceId?: string) => void;
   activeView: ActiveViewType;
   onViewChange: (view: ActiveViewType) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 // ── Nav items config ──────────────────────────────────────────────────
@@ -72,6 +74,8 @@ export default function Sidebar({
   refreshWorkspaces,
   activeView,
   onViewChange,
+  isOpen,
+  onClose,
 }: SidebarProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -87,7 +91,23 @@ export default function Sidebar({
   }
 
   return (
-    <aside className="flex h-full w-56 shrink-0 flex-col bg-sidebar text-sidebar-foreground">
+    <>
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden" 
+          onClick={onClose}
+        />
+      )}
+
+      <aside className={`fixed inset-y-0 left-0 z-50 flex h-full w-56 shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        {/* Mobile Close Button */}
+        <button 
+          onClick={onClose}
+          className="absolute right-2 top-2 p-2 text-muted-foreground hover:text-foreground lg:hidden"
+        >
+          <CloseIcon className="h-5 w-5" />
+        </button>
       {/* ── Workspace header + dropdown ─────────────────────────────── */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -204,7 +224,10 @@ export default function Sidebar({
           return (
             <button
               key={item.key}
-              onClick={() => onViewChange(item.key as ActiveViewType)}
+              onClick={() => {
+                onViewChange(item.key as ActiveViewType);
+                if (window.innerWidth < 1024) onClose?.();
+              }}
               className={`flex items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
                 activeView === item.key
                   ? "bg-white/[0.06] text-sidebar-foreground"
@@ -228,7 +251,10 @@ export default function Sidebar({
       </div>
       <nav className="flex flex-col gap-0.5 px-2 pb-4">
         <button
-          onClick={() => onViewChange("settings")}
+          onClick={() => {
+            onViewChange("settings");
+            if (window.innerWidth < 1024) onClose?.();
+          }}
           className={`flex items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
             activeView === "settings"
               ? "bg-white/[0.06] text-sidebar-foreground"
@@ -254,6 +280,7 @@ export default function Sidebar({
           refreshWorkspaces(newWorkspaceId);
         }}
       />
-    </aside>
+      </aside>
+    </>
   );
 }
