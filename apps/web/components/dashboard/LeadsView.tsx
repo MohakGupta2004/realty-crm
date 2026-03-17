@@ -196,6 +196,7 @@ export default function LeadsView({
   workspaceId,
   userRole = "AGENT",
 }: LeadsViewProps) {
+  const isOwner = userRole?.toUpperCase() === "OWNER";
   const [leads, setLeads] = useState<Lead[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -222,6 +223,7 @@ export default function LeadsView({
   const [newSource, setNewSource] = useState("");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
 
   const token = getToken();
 
@@ -268,10 +270,28 @@ export default function LeadsView({
     }
   }, [workspaceId, token]);
 
+  const fetchCurrentUser = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/user/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // The API might return user directly or inside an object
+        const user = data.user || data;
+        setCurrentUser(user);
+      }
+    } catch (err) {
+      console.error("Failed to fetch user:", err);
+    }
+  }, [token]);
+
   useEffect(() => {
     fetchLeads();
     fetchPipelines();
-  }, [fetchLeads, fetchPipelines]);
+    fetchCurrentUser();
+  }, [fetchLeads, fetchPipelines, fetchCurrentUser]);
 
   // Keep selected lead in sync after refetch
   useEffect(() => {
@@ -494,7 +514,7 @@ export default function LeadsView({
                   />
                 </th>
                 {TABLE_COLUMNS.filter(
-                  (col) => col.key !== "realtor" || userRole === "OWNER",
+                  (col) => col.key !== "realtor" || isOwner,
                 ).map((col) => (
                   <th
                     key={col.key}
@@ -623,7 +643,7 @@ export default function LeadsView({
                     </td>
 
                     {/* Realtor/Agent (Show only to OWNER) */}
-                    {userRole === "OWNER" && (
+                    {isOwner && (
                       <td className="px-4 py-2.5">
                         {lead.realtorId ? (
                           <div className="flex items-center gap-1.5 tooltip-trigger">
@@ -645,8 +665,7 @@ export default function LeadsView({
                       className="px-4 py-2.5"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {userRole === "OWNER" &&
-                      getRealtorId(lead) !== currentUserId ? (
+                      {isOwner && getRealtorId(lead) !== currentUserId ? (
                         <span className="text-muted-foreground/30 text-[12px]">
                           —
                         </span>
@@ -696,7 +715,7 @@ export default function LeadsView({
               {/* ── "+ Add New" row — appears BELOW existing rows ─── */}
               {!showNewForm ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={isOwner ? 9 : 8}>
                     <button
                       onClick={() => setShowNewForm(true)}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] text-muted-foreground/60 transition-colors hover:bg-white/[0.02] hover:text-muted-foreground"
@@ -710,95 +729,137 @@ export default function LeadsView({
                 <tr className="border-b border-white/[0.06] bg-white/[0.02]">
                   {/* Checkbox Placeholder */}
                   <td className="px-4 py-2 w-10"></td>
-                  {/* Name */}
-                  <td className="px-4 py-2">
-                    <Input
-                      placeholder="Lead name"
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                      className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
-                      autoFocus
-                    />
-                  </td>
-                  {/* Email */}
-                  <td className="px-4 py-2">
-                    <Input
-                      placeholder="email@example.com"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                      className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
-                    />
-                  </td>
-                  {/* Phone with country code */}
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-1">
-                      <CountryCodeSelect
-                        value={newCountryCode}
-                        onChange={setNewCountryCode}
-                      />
-                      <Input
-                        placeholder="Phone number"
-                        value={newPhone}
-                        onChange={(e) => setNewPhone(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                        className="h-8 flex-1 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
-                      />
-                    </div>
-                  </td>
-                  {/* City */}
-                  <td className="px-4 py-2">
-                    <Input
-                      placeholder="City"
-                      value={newCity}
-                      onChange={(e) => setNewCity(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                      className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
-                    />
-                  </td>
-                  {/* Status (defaults to new) */}
-                  <td className="px-4 py-2">
-                    <span className="inline-block rounded-full bg-blue-500/15 px-2.5 py-1 text-[11px] text-blue-400">
-                      new
-                    </span>
-                  </td>
-                  {/* Source */}
-                  <td className="px-4 py-2">
-                    <Input
-                      placeholder="Source"
-                      value={newSource}
-                      onChange={(e) => setNewSource(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                      className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
-                    />
-                  </td>
-                  {/* Actions */}
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={handleCreate}
-                        disabled={submitting}
-                        className="h-7 rounded-md px-3 text-[11px]"
-                      >
-                        {submitting ? "…" : "Save"}
-                      </Button>
-                      <button
-                        onClick={() => setShowNewForm(false)}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
+
+                  {TABLE_COLUMNS.filter(
+                    (col) => col.key !== "realtor" || isOwner,
+                  ).map((col) => {
+                    if (col.key === "name") {
+                      return (
+                        <td key={col.key} className="px-4 py-2">
+                          <Input
+                            placeholder="Lead name"
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                            className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
+                            autoFocus
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "email") {
+                      return (
+                        <td key={col.key} className="px-4 py-2">
+                          <Input
+                            placeholder="email@example.com"
+                            value={newEmail}
+                            onChange={(e) => setNewEmail(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                            className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "phone") {
+                      return (
+                        <td key={col.key} className="px-4 py-2">
+                          <div className="flex items-center gap-1">
+                            <CountryCodeSelect
+                              value={newCountryCode}
+                              onChange={setNewCountryCode}
+                            />
+                            <Input
+                              placeholder="Phone number"
+                              value={newPhone}
+                              onChange={(e) => setNewPhone(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                              className="h-8 flex-1 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
+                            />
+                          </div>
+                        </td>
+                      );
+                    }
+                    if (col.key === "city") {
+                      return (
+                        <td key={col.key} className="px-4 py-2">
+                          <Input
+                            placeholder="City"
+                            value={newCity}
+                            onChange={(e) => setNewCity(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                            className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "realtor") {
+                      const nameToShow = (currentUser?.firstName ? `${currentUser.firstName} ${currentUser.lastName || ""}`.trim() : "") || 
+                                       currentUser?.name || 
+                                       "You";
+                      return (
+                        <td key={col.key} className="px-4 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-[12px] truncate max-w-[100px] text-foreground font-medium">
+                              {nameToShow}
+                            </span>
+                          </div>
+                        </td>
+                      );
+                    }
+                    if (col.key === "status") {
+                      return (
+                        <td key={col.key} className="px-4 py-2">
+                          <span className="inline-block rounded-full bg-blue-500/15 px-2.5 py-1 text-[11px] text-blue-400">
+                            new
+                          </span>
+                        </td>
+                      );
+                    }
+                    if (col.key === "source") {
+                      return (
+                        <td key={col.key} className="px-4 py-2">
+                          <Input
+                            placeholder="Source"
+                            value={newSource}
+                            onChange={(e) => setNewSource(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                            className="h-8 border-0 bg-white/[0.04] px-3 text-[13px] shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-white/10"
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "createdAt") {
+                      return (
+                        <td key={col.key} className="px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={handleCreate}
+                              disabled={submitting}
+                              className="h-7 rounded-md px-3 text-[11px]"
+                            >
+                              {submitting ? "…" : "Save"}
+                            </Button>
+                            <button
+                              onClick={() => setShowNewForm(false)}
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      );
+                    }
+                    return null;
+                  })}
                 </tr>
               )}
 
               {/* Empty state */}
               {!loading && leads.length === 0 && !showNewForm && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center">
+                  <td colSpan={isOwner ? 9 : 8} className="px-4 py-16 text-center">
                     <p className="text-sm text-muted-foreground">
                       No leads yet
                     </p>
@@ -2228,9 +2289,11 @@ function EmailsTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
                       {timeAgo(comm.receivedAt)}
                     </span>
                   </div>
-                  <div 
+                  <div
                     className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2 mt-1 opacity-80"
-                    dangerouslySetInnerHTML={{ __html: comm.body?.replace(/<[^>]*>?/gm, ' ') }} 
+                    dangerouslySetInnerHTML={{
+                      __html: comm.body?.replace(/<[^>]*>?/gm, " "),
+                    }}
                   />
                 </div>
               ))
@@ -2371,7 +2434,13 @@ function EmailDraftForm({
 }
 
 // ── Timeline Tab ──────────────────────────────────────────────────────
-function TimelineTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
+function TimelineTab({
+  lead,
+  workspaceId,
+}: {
+  lead: Lead;
+  workspaceId: string;
+}) {
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const token = getToken();
@@ -2422,7 +2491,9 @@ function TimelineTab({ lead, workspaceId }: { lead: Lead; workspaceId: string })
       <div className="flex items-center justify-between">
         <p className="text-[13px] font-semibold text-foreground">
           Activity Log{" "}
-          <span className="ml-1 text-muted-foreground/60">{activities.length}</span>
+          <span className="ml-1 text-muted-foreground/60">
+            {activities.length}
+          </span>
         </p>
       </div>
 
