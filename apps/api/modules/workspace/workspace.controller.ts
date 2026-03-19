@@ -10,9 +10,9 @@ const pipelineService = new PipelineService();
 
 export const createWorkspace = async (req: Request, res: Response) => {
     try {
-        const { name } = createWorkspaceSchema.parse(req.body);
+        const { name, domain } = createWorkspaceSchema.parse(req.body);
         const authUser = req as AuthenticatedRequest;
-        const workspace = await workspaceService.createWorkspace(name, authUser.user.id);
+        const workspace = await workspaceService.createWorkspace(name, authUser.user.id, domain);
         await membershipService.createMembership(
             String(workspace._id),
             authUser.user.id,
@@ -73,8 +73,13 @@ export const createWorkspace = async (req: Request, res: Response) => {
                 colorIndex: stage.colorIndex,
             });
         }
-
-        res.status(201).json(workspace);
+        const trackerScript = `
+            <script 
+                src="https://${process.env.BACKEND_URL}/tracker.js"
+                data-key="${workspace.apiKey}">
+            </script>
+        `
+        res.status(201).json({ workspace, trackerScript });
     } catch (error) {
         res.status(500).json({ message: "Failed to create workspace" });
     }

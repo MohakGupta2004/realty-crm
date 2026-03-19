@@ -10,6 +10,15 @@ const workspaceSchema = new mongoose.Schema({
         enum: ["SOLO", "TEAM"],
         required: true,
     },
+    apiKey:{
+        type: String,
+        required: true,
+        unique: true,
+    },
+    domain:{
+        type: String,
+        required: true,
+    },
     owner: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -18,5 +27,7 @@ const workspaceSchema = new mongoose.Schema({
 }, {
     timestamps: true,
 });
+
+workspaceSchema.index({ owner: 1 });
 
 export const Workspace = mongoose.model("Workspace", workspaceSchema);
