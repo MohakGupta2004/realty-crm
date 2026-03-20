@@ -12,7 +12,6 @@ const leadSchema = new mongoose.Schema<ILead>({
     },
     phone: {
         type: String,
-        required: true
     },
     source: {
         type: String,
@@ -61,5 +60,6 @@ const leadSchema = new mongoose.Schema<ILead>({
 
 leadSchema.index({ workspaceId: 1, realtorId: 1 });
 leadSchema.index({ campaignId: 1, realtorId: 1, workspaceId: 1 });
+leadSchema.index({ workspaceId: 1, email: 1 }, { unique: true });
 
 export const Lead = mongoose.model<ILead>("Lead", leadSchema);
