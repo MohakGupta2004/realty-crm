@@ -19,7 +19,7 @@ import emailIntegrationModule from "./modules/emailIntegration/emailIntegration.
 import communicationModule from "./modules/communication/communication.module";
 import activityModule from "./modules/activity/activity.module";
 import uploadModule from "./modules/upload/upload.module";
-import trackerRouter from "./modules/trackers/tracker.routes";
+import trackerModule from "./modules/trackers/tracker.module";
 const app = express();
 
 // ── Global Middleware ─────────────────────────────────────────────────
@@ -59,6 +59,6 @@ app.use("/api/v1/communication", communicationModule);
 app.use("/api/v1/activity", activityModule);
 app.use("/api/v1/upload", uploadModule);
 
-app.use("/", trackerRouter);
+app.use("/", trackerModule);
 
 export default app;
