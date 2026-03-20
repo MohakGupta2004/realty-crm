@@ -121,6 +121,52 @@ export class TrackerService {
 
     return lead;
   }
+
+  public async getEvents(workspaceId: string, page: number = 1, limit: number = 50) {
+    const skip = (page - 1) * limit;
+
+    const [events, total] = await Promise.all([
+      Event.find({ workspaceId })
+        .sort({ timestamp: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('leadId', 'name email'),
+      Event.countDocuments({ workspaceId })
+    ]);
+
+    return {
+      events,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  public async getVisitors(workspaceId: string, page: number = 1, limit: number = 50) {
+    const skip = (page - 1) * limit;
+
+    const [visitors, total] = await Promise.all([
+      Visitor.find({ workspaceId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('leadId', 'name email'),
+      Visitor.countDocuments({ workspaceId })
+    ]);
+
+    return {
+      visitors,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
 }
 
 export const trackerService = new TrackerService();
