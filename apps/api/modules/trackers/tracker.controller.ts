@@ -66,3 +66,31 @@ export const identifyVisitor = async (req: Request, res: Response) => {
     return res.sendStatus(500);
   }
 };
+
+export const getWorkspaceEvents = async (req: Request, res: Response) => {
+  try {
+    const workspaceId = req.params.workspaceId as string;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+
+    const data = await trackerService.getEvents(workspaceId, page, limit);
+    return res.json({ success: true, ...data });
+  } catch (err: any) {
+    console.error("Get workspace events error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const getWorkspaceVisitors = async (req: Request, res: Response) => {
+  try {
+    const workspaceId = req.params.workspaceId as string;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+
+    const data = await trackerService.getVisitors(workspaceId, page, limit);
+    return res.json({ success: true, ...data });
+  } catch (err: any) {
+    console.error("Get workspace visitors error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
