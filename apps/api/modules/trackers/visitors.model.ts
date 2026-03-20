@@ -25,7 +25,7 @@ const visitorSchema = new mongoose.Schema({
   },
 });
 
-visitorSchema.index({ visitorId: 1 }, { unique: true });
+visitorSchema.index({ visitorId: 1, workspaceId: 1 }, { unique: true });
 visitorSchema.index({ leadId: 1 });
 
 export const Visitor = mongoose.model("Visitor", visitorSchema);

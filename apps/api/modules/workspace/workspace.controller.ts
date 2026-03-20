@@ -33,7 +33,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
             { name: "Closed Won", probability: 100, isFinal: true, colorIndex: 8 },
             { name: "Lost", probability: 0, isFinal: true, colorIndex: 9 },
         ];
-        
+
         for (let i = 0; i < buyerStages.length; i++) {
             const stage = buyerStages[i];
             if (!stage) continue;
@@ -47,7 +47,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
                 colorIndex: stage.colorIndex,
             });
         }
-        
+
         const sellerPipeline = await pipelineService.createPipeline("Seller", "SELLER", String(workspace._id), authUser.user.id);
         const sellerStages = [
             { name: "New Inquiry", probability: 10, isFinal: false, colorIndex: 0 },
@@ -59,7 +59,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
             { name: "Closed Won", probability: 100, isFinal: true, colorIndex: 8 },
             { name: "Lost", probability: 0, isFinal: true, colorIndex: 9 },
         ];
-        
+
         for (let i = 0; i < sellerStages.length; i++) {
             const stage = sellerStages[i];
             if (!stage) continue;
@@ -75,10 +75,11 @@ export const createWorkspace = async (req: Request, res: Response) => {
         }
         const trackerScript = `
             <script 
-                src="https://${process.env.BACKEND_URL}/tracker.js"
-                data-key="${workspace.apiKey}">
+            src="${process.env.BACKEND_URL || 'http://localhost:3000'}/tracker.js"
+            data-key="${workspace.apiKey}" 
+            defer>
             </script>
-        `
+        `.trim();
         res.status(201).json({ workspace, trackerScript });
     } catch (error) {
         res.status(500).json({ message: "Failed to create workspace" });

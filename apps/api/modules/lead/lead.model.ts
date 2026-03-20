@@ -12,7 +12,6 @@ const leadSchema = new mongoose.Schema<ILead>({
     },
     phone: {
         type: String,
-        required: true
     },
     source: {
         type: String,

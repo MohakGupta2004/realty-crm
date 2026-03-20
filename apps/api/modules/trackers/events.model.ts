@@ -7,8 +7,7 @@ const eventSchema = new mongoose.Schema({
     required: true,
   },
   visitorId: {
-    type: mongoose.Types.ObjectId,
-    ref: "Visitor",
+    type: String,
     required: true,
   },
   leadId: {
@@ -30,9 +29,8 @@ const eventSchema = new mongoose.Schema({
   },
 });
 
-eventSchema.index({ workspaceId: 1, timestamp: -1 });
-eventSchema.index({ visitorId: 1 });
-eventSchema.index({ leadId: 1 });
 eventSchema.index({ workspaceId: 1, visitorId: 1 });
+eventSchema.index({ workspaceId: 1, leadId: 1 });
+eventSchema.index({ workspaceId: 1, timestamp: -1 });
 
 export const Event = mongoose.model("Event", eventSchema);
