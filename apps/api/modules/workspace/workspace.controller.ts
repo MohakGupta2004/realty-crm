@@ -12,9 +12,9 @@ const pipelineService = new PipelineService();
 
 export const createWorkspace = async (req: Request, res: Response) => {
     try {
-        const { name, domain } = createWorkspaceSchema.parse(req.body);
+        const { name } = createWorkspaceSchema.parse(req.body);
         const authUser = req as AuthenticatedRequest;
-        const workspace = await workspaceService.createWorkspace(name, authUser.user.id, domain);
+        const workspace = await workspaceService.createWorkspace(name, authUser.user.id);
         await membershipService.createMembership(
             String((workspace as any)._id),
             authUser.user.id,

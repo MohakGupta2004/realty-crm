@@ -82,6 +82,7 @@ class UserService {
             brokerageLogoUrl: user.brokerageLogoUrl,
             brokerageName: user.brokerageName,
             subscriptionPlan: user.subscriptionPlan,
+            website: user.website,
         };
     }
 }

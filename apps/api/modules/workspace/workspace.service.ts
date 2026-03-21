@@ -4,9 +4,8 @@ import { trackerService } from "../trackers/tracker.service";
 import { ApiKey } from "../trackers/key.model";
 
 class WorkspaceService {
-    async createWorkspace(name: string, userId: string, domain?: string) {
+    async createWorkspace(name: string, userId: string) {
         const workspace = await Workspace.create({ name, type: "SOLO", owner: userId });
-        await trackerService.generateApiKey(String(workspace._id), userId, domain);
         return workspace;
     }
 

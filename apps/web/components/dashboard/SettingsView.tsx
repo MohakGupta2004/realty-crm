@@ -66,7 +66,7 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
     brokerageLogoUrl: "",
     brokerageName: "",
     subscriptionPlan: "free",
-    domain: workspace?.domain || "",
+    website: "",
   });
 
   useEffect(() => {
@@ -96,7 +96,7 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
           brokerageLogoUrl: user.brokerageLogoUrl || "",
           brokerageName: user.brokerageName || "",
           subscriptionPlan: user.subscriptionPlan || "free",
-          domain: workspace?.domain || "",
+          website: user.website || "",
         });
       } catch (err) {
         console.error("Fetch profile error:", err);
@@ -172,23 +172,6 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
       });
 
       if (!userRes.ok) throw new Error("User update failed");
-
-      // Update Workspace Details (Domain)
-      if (workspace?._id && formData.domain !== workspace.domain) {
-        const workspaceRes = await fetch(`${API_BASE_URL}/workspace/${workspace._id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
-          },
-          body: JSON.stringify({
-            domain: formData.domain.trim() || undefined,
-          }),
-        });
-
-        if (!workspaceRes.ok) throw new Error("Workspace update failed");
-        if (onUpdate) onUpdate();
-      }
 
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -512,15 +495,15 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
               </div>
               <div className="space-y-1.5 col-span-2">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-0.5">
-                  Official Workspace Domain
+                  Official Business Website
                 </label>
                 <div className="relative">
                   <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/20" />
                   <Input
-                    name="domain"
-                    value={formData.domain}
+                    name="website"
+                    value={formData.website}
                     onChange={handleInputChange}
-                    placeholder={workspace?.domain || "e.g. example.com"}
+                    placeholder="e.g. https://www.example.com"
                     className="h-10 pl-10 bg-accent/5 border-border/10 focus-visible:ring-1 focus-visible:ring-foreground/20 text-sm font-medium"
                   />
                 </div>

@@ -46,7 +46,6 @@ export default function AuthModal({ isAuthenticated }: AuthModalProps) {
     isAuthenticated ? "workspace" : "providers",
   );
   const [workspaceName, setWorkspaceName] = useState("");
-  const [domain, setDomain] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -76,8 +75,7 @@ export default function AuthModal({ isAuthenticated }: AuthModalProps) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ 
-          name: workspaceName.trim(),
-          domain: domain.trim() || undefined
+          name: workspaceName.trim()
         }),
       });
 
@@ -179,18 +177,6 @@ export default function AuthModal({ isAuthenticated }: AuthModalProps) {
                     />
                   </div>
                   
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 ml-1 mb-1 flex justify-between">
-                      Domain <span className="opacity-60 text-[9px] lowercase italic font-normal text-muted-foreground/60">(Optional)</span>
-                    </label>
-                    <Input
-                      placeholder="e.g. diamondrealty.com"
-                      value={domain}
-                      onChange={(e) => setDomain(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreateWorkspace()}
-                      className="h-12 border-border/60 bg-background/50 focus-visible:ring-1 rounded-xl"
-                    />
-                  </div>
                   {error && <p className="text-xs font-medium text-destructive ml-1">{error}</p>}
                 </div>
 

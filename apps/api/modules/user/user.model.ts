@@ -48,6 +48,7 @@ const userSchema = new Schema<IUser>(
             default: 'free',
         },
         avatarUrl: String,
+        website: String,
         onboardingComplete: {
             type: Boolean,
             default: false,

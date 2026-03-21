@@ -16,7 +16,6 @@ export function CreateWorkspaceModal({
   onSuccess: (workspaceId: string) => void;
 }) {
   const [workspaceName, setWorkspaceName] = useState("");
-  const [domain, setDomain] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -40,8 +39,7 @@ export function CreateWorkspaceModal({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ 
-          name: workspaceName.trim(),
-          domain: domain.trim() || undefined 
+          name: workspaceName.trim()
         }),
       });
 
@@ -96,20 +94,6 @@ export function CreateWorkspaceModal({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 ml-1 mb-1 flex justify-between">
-              Domain <span className="opacity-60 text-[9px] lowercase italic font-normal text-foreground/40">(Optional)</span>
-            </label>
-            <Input
-              placeholder="e.g. dreamteam.com"
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              onKeyDown={(e) =>
-                e.key === "Enter" && handleCreateWorkspace()
-              }
-              className="border-border/60 bg-background/50 py-5 transition-colors focus:border-primary/60 h-10"
-            />
-          </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
