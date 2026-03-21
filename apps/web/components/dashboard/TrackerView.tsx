@@ -128,7 +128,7 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight">Website Tracker</h1>
-            <p className="text-sm text-muted-foreground/60">Monitor visitor activity and identify new leads across your domain</p>
+            <p className="text-sm text-muted-foreground">Monitor visitor activity and identify new leads across your domain</p>
           </div>
           <div className="flex gap-3">
              <Button 
@@ -155,14 +155,14 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
 
         <div className="space-y-12">
           {/* Configuration Card */}
-          <section className="space-y-6 bg-card/30 border border-border/40 p-6 rounded-xl shadow-sm backdrop-blur-[2px]">
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/70 border-b border-border/10 pb-3 mb-2">
+          <section className="space-y-6 bg-card border border-border p-6 rounded-xl shadow-sm">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground border-b border-border/30 pb-3 mb-2">
               Tracker Configuration
             </h2>
 
             <div className="space-y-8">
               <div className="space-y-3">
-                 <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-0.5">
+                 <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-0.5">
                     Authorized Target Domain
                  </Label>
                  <div className="relative group">
@@ -176,7 +176,7 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
                  </div>
                  <div className="flex items-start gap-2 px-1">
                     <Info className="h-3 w-3 text-muted-foreground/30 mt-0.5" />
-                    <p className="text-[10px] text-muted-foreground/40 italic leading-relaxed">
+                    <p className="text-[10px] text-muted-foreground italic leading-relaxed">
                        Security Note: Changing the authorized domain will invalidate your current API key and generate a new one for that specific context.
                     </p>
                  </div>
@@ -184,7 +184,7 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
 
               {apiKey && confirmedDomain && domain === confirmedDomain && (
                  <div className="space-y-3 pt-2">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-0.5">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-0.5">
                        Active Tracking Identity
                     </Label>
                     <div className="flex items-center gap-2 p-1.5 pl-4 rounded-lg bg-accent/5 border border-border/10 shadow-inner">
@@ -209,9 +209,9 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
 
           {/* Installation Script */}
           {trackerScript && confirmedDomain && domain === confirmedDomain ? (
-            <section className="space-y-6 bg-card/30 border border-border/40 p-6 rounded-xl shadow-sm backdrop-blur-[2px] animate-in slide-in-from-bottom-8 duration-700">
-               <div className="flex items-center justify-between border-b border-border/10 pb-3 mb-2">
-                  <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">
+            <section className="space-y-6 bg-card border border-border p-6 rounded-xl shadow-sm animate-in slide-in-from-bottom-8 duration-700">
+               <div className="flex items-center justify-between border-b border-border/30 pb-3 mb-2">
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">
                     Integration Payload
                   </h2>
                   <Button 
@@ -226,13 +226,13 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
                <div className="space-y-4">
                   <div className="p-4 rounded-lg bg-amber-500/5 border border-amber-500/10 flex items-start gap-3 shadow-inner">
                      <Radar className="h-4 w-4 text-amber-500/50 shrink-0 mt-0.5" />
-                     <p className="text-[11px] text-amber-200/50 leading-relaxed italic">
-                        Deployment Instructions: Inject this script into the <span className="font-bold text-foreground/40 underline">&lt;head&gt;</span> of your target website. Once deployed, tracking will propagate within 1-2 minutes.
+                     <p className="text-[11px] text-amber-700 dark:text-amber-300/70 leading-relaxed italic">
+                        Deployment Instructions: Inject this script into the <span className="font-bold text-foreground/60 underline">&lt;head&gt;</span> of your target website. Once deployed, tracking will propagate within 1-2 minutes.
                      </p>
                   </div>
 
                   <div className="relative group">
-                    <pre className="p-6 rounded-xl bg-black/40 border border-border/10 overflow-x-auto text-[12px] font-mono leading-relaxed text-foreground/50 custom-scrollbar select-all group-hover:bg-black/50 transition-colors shadow-inner">
+                    <pre className="p-6 rounded-xl bg-muted border border-border overflow-x-auto text-[12px] font-mono leading-relaxed text-foreground/70 custom-scrollbar select-all hover:bg-muted/80 transition-colors">
                       {trackerScript}
                     </pre>
                     <div className="absolute top-4 right-4 flex gap-2">
@@ -252,11 +252,11 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
           ) : (
             <div className="p-16 rounded-xl border-2 border-dashed border-border/20 bg-accent/2 flex flex-col items-center justify-center text-center space-y-4">
                <div className="h-16 w-16 rounded-xl bg-accent/5 flex items-center justify-center border border-border/10">
-                  <Code2 className="h-8 w-8 text-muted-foreground/10" />
+                  <Code2 className="h-8 w-8 text-muted-foreground/30" />
                </div>
                <div className="space-y-1">
-                  <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/60">Awaiting Initialization</h3>
-                  <p className="text-[11px] text-muted-foreground/40 max-w-[240px] italic">Set your domain and generate an identity key to receive your website connection script</p>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Awaiting Initialization</h3>
+                  <p className="text-[11px] text-muted-foreground/70 max-w-[240px] italic">Set your domain and generate an identity key to receive your website connection script</p>
                </div>
             </div>
           )}
@@ -268,8 +268,8 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
           __html: `
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 20px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.1); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.15); border-radius: 20px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.25); }
       `,
         }}
       />
