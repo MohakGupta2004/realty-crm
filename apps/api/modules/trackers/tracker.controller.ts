@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { trackerService } from "./tracker.service";
+import type { AuthenticatedRequest } from "../../shared/middleware/requireAuth";
 
 export const trackBatch = async (req: Request, res: Response) => {
   try {
@@ -94,3 +95,47 @@ export const getWorkspaceVisitors = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+export const generateApiKey = async (req: Request, res: Response) => {
+  try {
+    const authUser = req as AuthenticatedRequest;
+    const { workspaceId } = req.body;
+
+    if (!workspaceId) {
+      return res.status(400).json({ success: false, message: "workspaceId is required" });
+    }
+
+    const newApiKey = await trackerService.generateApiKey(workspaceId, authUser.user.id);
+    return res.json({ success: true, apiKey: newApiKey });
+  } catch (err: any) {
+    if (err.message === "WORKSPACE_NOT_FOUND") {
+      return res.status(404).json({ success: false, message: "Workspace not found or unauthorized" });
+    }
+    console.error("Generate API key error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const getTrackerDetails = async (req: Request, res: Response) => {
+  try {
+    const authUser = req as AuthenticatedRequest;
+    const workspaceId = req.params.workspaceId;
+
+    if (!workspaceId) {
+      return res.status(400).json({ success: false, message: "workspaceId is required" });
+    }
+
+    const details = await trackerService.getTrackerDetails(workspaceId as string, authUser.user.id);
+    return res.json({ success: true, ...details });
+  } catch (err: any) {
+    if (err.message === "API_KEY_NOT_FOUND") {
+      return res.status(404).json({ success: false, message: "API key not found. Please generate one." });
+    }
+    if (err.message === "WORKSPACE_NOT_FOUND") {
+      return res.status(404).json({ success: false, message: "Workspace not found or unauthorized" });
+    }
+    console.error("Get tracker details error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
