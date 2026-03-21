@@ -347,7 +347,7 @@ export class TrackerService {
               $switch: {
                 branches: [
                   { case: { $eq: ["$event", "page_view"] }, then: "$data.url" },
-                  { case: { $eq: ["$event", "click"] }, then: { $ifNull: ["$data.text", "Unknown click"] } },
+                  { case: { $eq: ["$event", "click"] }, then: { $ifNull: ["$data.text", { $ifNull: ["$data.button_text", { $ifNull: ["$data.location", "Unknown click"] }] }] } },
                   { case: { $eq: ["$event", "form_submit"] }, then: { $ifNull: ["$data.formId", "Unknown form"] } },
                 ],
                 default: "other"
