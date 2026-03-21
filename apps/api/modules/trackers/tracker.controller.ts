@@ -99,17 +99,26 @@ export const getWorkspaceVisitors = async (req: Request, res: Response) => {
 export const generateApiKey = async (req: Request, res: Response) => {
   try {
     const authUser = req as AuthenticatedRequest;
-    const { workspaceId } = req.body;
+    const { workspaceId, domain } = req.body;
 
     if (!workspaceId) {
       return res.status(400).json({ success: false, message: "workspaceId is required" });
     }
 
-    const newApiKey = await trackerService.generateApiKey(workspaceId, authUser.user.id);
+    const newApiKey = await trackerService.generateApiKey(workspaceId, authUser.user.id, domain);
     return res.json({ success: true, apiKey: newApiKey });
   } catch (err: any) {
     if (err.message === "WORKSPACE_NOT_FOUND") {
       return res.status(404).json({ success: false, message: "Workspace not found or unauthorized" });
+    }
+    if (err.message === "ONLY_OWNER_CAN_SET_DOMAIN") {
+      return res.status(403).json({ success: false, message: "Only workspace owners can set or update the tracking domain" });
+    }
+    if (err.message === "DOMAIN_ALREADY_IN_USE") {
+      return res.status(409).json({ success: false, message: "This domain is already being used by another workspace" });
+    }
+    if (err.message === "DOMAIN_NOT_CONFIGURED_BY_OWNER") {
+      return res.status(400).json({ success: false, message: "The workspace owner has not configured a domain yet" });
     }
     console.error("Generate API key error:", err);
     return res.status(500).json({ success: false, message: "Internal server error" });

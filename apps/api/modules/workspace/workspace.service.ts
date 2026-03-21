@@ -10,14 +10,16 @@ class WorkspaceService {
         return workspace;
     }
 
-    async updateWorkspace(workspaceId: string, data: { name?: string; domain?: string }) {
+    async updateWorkspace(workspaceId: string, data: { name?: string; domain?: string }, userId: string) {
         const { domain, ...otherData } = data;
-        const workspace = await Workspace.findByIdAndUpdate(workspaceId, { $set: otherData }, { new: true });
+        const workspace = await Workspace.findOneAndUpdate(
+            { _id: workspaceId, owner: userId }, 
+            { $set: otherData }, 
+            { new: true }
+        );
         
-        if (domain !== undefined) {
-            await ApiKey.updateMany({ workspace: workspaceId }, { $set: { domain } });
-        }
-        
+        if (!workspace) throw new Error("WORKSPACE_NOT_FOUND");
+
         return workspace;
     }
 
@@ -27,13 +29,19 @@ class WorkspaceService {
             .sort({ createdAt: 1 })
             .lean();
         
-        return memberships
+        const workspaceData = await Promise.all(memberships
             .filter((m) => m.workspace)
-            .map((m) => ({
-                ...(m.workspace as any),
-                role: m.role,
-                membershipId: m._id,
+            .map(async (m) => {
+                const keyDoc = await ApiKey.findOne({ user: userId, workspace: (m.workspace as any)._id }).select("domain");
+                return {
+                    ...(m.workspace as any),
+                    role: m.role,
+                    membershipId: m._id,
+                    domain: keyDoc?.domain || null
+                };
             }));
+
+        return workspaceData;
     }
 }
 

@@ -106,7 +106,7 @@ export const updateWorkspace = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "Workspace not found or unauthorized" });
         }
 
-        const updatedWorkspace = await workspaceService.updateWorkspace(id, { name, domain });
+        const updatedWorkspace = await workspaceService.updateWorkspace(id, { name, domain }, authUser.user.id);
         res.status(200).json(updatedWorkspace);
     } catch (error) {
         res.status(500).json({ message: "Failed to update workspace" });

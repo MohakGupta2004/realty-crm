@@ -184,15 +184,27 @@ export class TrackerService {
     };
   }
   public async generateApiKey(workspaceId: string, userId: string, domain?: string) {
-    const workspace = await Workspace.findById(workspaceId).select("owner");
+    const workspace = await Workspace.findById(workspaceId).select("_id");
     if (!workspace) {
       throw new Error("WORKSPACE_NOT_FOUND");
     }
 
+    // 1. If domain is provided, it must be globally unique
+    if (domain) {
+      const existingDomainKey = await ApiKey.findOne({ 
+        domain: domain,
+        user: { $ne: userId as any } 
+      });
+      
+      if (existingDomainKey) {
+        throw new Error("DOMAIN_ALREADY_IN_USE");
+      }
+    } 
+
     const newApiKey = crypto.randomUUID();
     
     await ApiKey.findOneAndUpdate(
-      { user: userId, workspace: workspaceId },
+      { user: userId as any, workspace: workspaceId as any },
       { 
         $set: { 
           key: newApiKey,
