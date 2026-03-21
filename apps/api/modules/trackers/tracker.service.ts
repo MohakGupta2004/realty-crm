@@ -1,4 +1,5 @@
 import { Workspace } from "../workspace/workspace.model";
+import { User } from "../user/user.model";
 import { Event } from "./events.model";
 import { Visitor } from "./visitors.model";
 import { Lead } from "../lead/lead.model";
@@ -183,22 +184,57 @@ export class TrackerService {
       }
     };
   }
+  private normalizeDomain(input: string | undefined): string | null {
+    if (!input) return null;
+    let urlString = input.trim().toLowerCase();
+    if (!urlString.startsWith("http")) {
+      urlString = "https://" + urlString;
+    }
+    try {
+      const url = new URL(urlString);
+      let hostname = url.hostname;
+      if (hostname.startsWith("www.")) {
+        hostname = hostname.slice(4);
+      }
+      return hostname;
+    } catch {
+      return null;
+    }
+  }
+
   public async generateApiKey(workspaceId: string, userId: string, domain?: string) {
     const workspace = await Workspace.findById(workspaceId).select("_id");
     if (!workspace) {
       throw new Error("WORKSPACE_NOT_FOUND");
     }
 
+    const realtor = await User.findById(userId).select("website");
+    if (!realtor) {
+      throw new Error("USER_NOT_FOUND");
+    }
+
     // 1. If domain is provided, it must be globally unique
     if (domain) {
+      const normalizedProvided = this.normalizeDomain(domain);
+      if (!normalizedProvided) {
+        throw new Error("INVALID_DOMAIN_FORMAT");
+      }
+
+      // 2. It must be globally unique
       const existingDomainKey = await ApiKey.findOne({ 
-        domain: domain,
+        domain: normalizedProvided,
         user: { $ne: userId as any } 
       });
       
       if (existingDomainKey) {
         throw new Error("DOMAIN_ALREADY_IN_USE");
       }
+      
+      // 3. Automatically update the user's profile website
+      await User.findByIdAndUpdate(userId, { $set: { website: normalizedProvided } });
+      
+      // Use the normalized domain for storage
+      domain = normalizedProvided;
     } 
 
     const newApiKey = crypto.randomUUID();
@@ -220,11 +256,16 @@ export class TrackerService {
   public async getTrackerDetails(workspaceId: string, userId: string) {
     const keyDoc = await ApiKey.findOne({ user: userId, workspace: workspaceId }).select("key domain");
     
-    if (!keyDoc) {
-      throw new Error("API_KEY_NOT_FOUND");
-    }
-
     const scriptUrl = process.env.STATIC_SCRIPT_URL || "http://localhost:3000/tracker.js";
+    
+    if (!keyDoc) {
+      return {
+        apiKey: null,
+        trackerScript: null,
+        scriptUrl,
+        domain: null
+      };
+    }
     const trackerScript = keyDoc.domain ? `
 <script 
   src="${scriptUrl}"

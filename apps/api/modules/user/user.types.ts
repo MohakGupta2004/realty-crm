@@ -23,6 +23,7 @@ export interface IUser extends Document {
     subscriptionPlan?: 'free' | 'pro' | 'enterprise';
     onboardingComplete?: boolean;
     avatarUrl?: string;
+    website?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -48,4 +49,5 @@ export interface UserResponse {
     brokerageLogoUrl?: string;
     brokerageName?: string;
     subscriptionPlan?: string;
+    website?: string;
 }

@@ -20,6 +20,7 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
   const [generating, setGenerating] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [domain, setDomain] = useState("");
+  const [confirmedDomain, setConfirmedDomain] = useState<string | null>(null);
   const [trackerScript, setTrackerScript] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
@@ -37,6 +38,7 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
         const data = await res.json();
         setApiKey(data.apiKey || "");
         setDomain(data.domain || "");
+        setConfirmedDomain(data.domain || null);
         setTrackerScript(data.trackerScript);
       } else {
         const data = await res.json();
@@ -79,18 +81,15 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
         await fetchTrackerDetails();
       } else {
         const data = await res.json();
-        // Specific handling for new error states
-        if (res.status === 403) throw new Error("ONLY_OWNER_CAN_SET_DOMAIN");
         if (res.status === 409) throw new Error("DOMAIN_ALREADY_IN_USE");
-        if (res.status === 400 && data.message.includes("owner has not configured")) throw new Error("DOMAIN_NOT_CONFIGURED_BY_OWNER");
+        if (data.message.includes("Invalid domain format")) throw new Error("INVALID_DOMAIN_FORMAT");
         
         setError(data.message || "Failed to generate API key");
       }
     } catch (err: any) {
-      if (err.message === "ONLY_OWNER_CAN_SET_DOMAIN") setError("Only workspace owners can configure the domain.");
-      else if (err.message === "DOMAIN_ALREADY_IN_USE") setError("This domain is already registered to another workspace.");
-      else if (err.message === "DOMAIN_NOT_CONFIGURED_BY_OWNER") setError("Please ask your workspace owner to configure the domain first.");
-      else setError("Network error generating API key");
+      if (err.message === "DOMAIN_ALREADY_IN_USE") setError("This domain is already registered to another user.");
+      else if (err.message === "INVALID_DOMAIN_FORMAT") setError("Invalid domain format. Please enter a valid URL or hostname.");
+      else setError(err.message || "Network error generating API key");
     } finally {
       setGenerating(false);
     }
@@ -183,7 +182,7 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
                  </div>
               </div>
 
-              {apiKey && (
+              {apiKey && confirmedDomain && domain === confirmedDomain && (
                  <div className="space-y-3 pt-2">
                     <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 ml-0.5">
                        Active Tracking Identity
@@ -209,7 +208,7 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
           </section>
 
           {/* Installation Script */}
-          {trackerScript ? (
+          {trackerScript && confirmedDomain && domain === confirmedDomain ? (
             <section className="space-y-6 bg-card/30 border border-border/40 p-6 rounded-xl shadow-sm backdrop-blur-[2px] animate-in slide-in-from-bottom-8 duration-700">
                <div className="flex items-center justify-between border-b border-border/10 pb-3 mb-2">
                   <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">

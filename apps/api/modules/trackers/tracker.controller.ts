@@ -111,14 +111,11 @@ export const generateApiKey = async (req: Request, res: Response) => {
     if (err.message === "WORKSPACE_NOT_FOUND") {
       return res.status(404).json({ success: false, message: "Workspace not found or unauthorized" });
     }
-    if (err.message === "ONLY_OWNER_CAN_SET_DOMAIN") {
-      return res.status(403).json({ success: false, message: "Only workspace owners can set or update the tracking domain" });
-    }
     if (err.message === "DOMAIN_ALREADY_IN_USE") {
-      return res.status(409).json({ success: false, message: "This domain is already being used by another workspace" });
+      return res.status(409).json({ success: false, message: "This domain is already registered to another user" });
     }
-    if (err.message === "DOMAIN_NOT_CONFIGURED_BY_OWNER") {
-      return res.status(400).json({ success: false, message: "The workspace owner has not configured a domain yet" });
+    if (err.message === "INVALID_DOMAIN_FORMAT") {
+      return res.status(400).json({ success: false, message: "Invalid domain format. Please enter a valid URL or hostname." });
     }
     console.error("Generate API key error:", err);
     return res.status(500).json({ success: false, message: "Internal server error" });
