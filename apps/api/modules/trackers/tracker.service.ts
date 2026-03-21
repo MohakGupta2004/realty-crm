@@ -343,7 +343,7 @@ export class TrackerService {
             event: 1,
             data: 1,
             timestamp: 1,
-            _key: {
+            _rawKey: {
               $switch: {
                 branches: [
                   { case: { $eq: ["$event", "page_view"] }, then: "$data.url" },
@@ -353,6 +353,11 @@ export class TrackerService {
                 default: "other"
               }
             }
+          }
+        },
+        {
+          $addFields: {
+            _key: { $toLower: "$_rawKey" }
           }
         },
         {
@@ -418,7 +423,10 @@ export class TrackerService {
           label = rawKey.slice(0, 60);
         }
       } else if (eventType === "click") {
-        label = rawKey || "Unknown click";
+        // Capitalize since keys are lowercased for grouping
+        label = rawKey
+          ? rawKey.replace(/\b\w/g, (c) => c.toUpperCase())
+          : "Unknown click";
         const data = item.sampleData || {};
         if (data.href) {
           try {
