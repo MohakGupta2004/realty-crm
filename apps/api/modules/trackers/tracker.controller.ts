@@ -157,3 +157,14 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+export const getLeadEngagement = async (req: Request, res: Response) => {
+  try {
+    const workspaceId = req.params.workspaceId as string;
+    const leads = await trackerService.getLeadEngagement(workspaceId);
+    return res.json({ success: true, leads });
+  } catch (err: any) {
+    console.error("Get lead engagement error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};

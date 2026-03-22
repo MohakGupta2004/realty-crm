@@ -12,8 +12,11 @@ import {
   Activity,
   MousePointerClick,
   BarChart3,
+  Trophy,
+  Flame,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { API_BASE_URL, getToken } from "@/lib/auth";
 import { ContentLoader } from "@/components/ui/content-loader";
 
@@ -39,6 +42,15 @@ interface DashboardStats {
   deviceBreakdown: { desktop: number; mobile: number; tablet: number };
 }
 
+interface LeadEngagement {
+  leadId: string;
+  name: string;
+  email: string;
+  totalEvents: number;
+  lastSeen: string;
+  buttonTexts: string[];
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────
 function formatNumber(num: number): string {
   if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
@@ -60,9 +72,35 @@ function eventColor(type: string): string {
   return "#64748b";
 }
 
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+/** Returns a stable hue (0-360) from a string */
+function stringToHue(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) % 360;
+}
+
 const BAR_PALETTE = [
   "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444",
   "#06b6d4", "#6366f1", "#ec4899", "#14b8a6", "#f97316",
+];
+
+const RANK_STYLES = [
+  { bg: "bg-amber-400/10", text: "text-amber-500", icon: "🥇" },
+  { bg: "bg-slate-400/10",  text: "text-slate-400",  icon: "🥈" },
+  { bg: "bg-orange-400/10", text: "text-orange-400", icon: "🥉" },
 ];
 
 // ══════════════════════════════════════════════════════════════════════
@@ -72,9 +110,10 @@ export default function AnalyticsView({ workspaceId }: AnalyticsViewProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [leads, setLeads] = useState<LeadEngagement[]>([]);
   const [error, setError] = useState("");
 
-  const fetchStats = useCallback(
+  const fetchAll = useCallback(
     async (isRefresh = false) => {
       if (!workspaceId) return;
       if (isRefresh) setRefreshing(true);
@@ -82,15 +121,24 @@ export default function AnalyticsView({ workspaceId }: AnalyticsViewProps) {
       setError("");
 
       try {
-        const res = await fetch(
-          `${API_BASE_URL}/trackers/workspace/${workspaceId}/dashboard-stats`,
-          { headers: { Authorization: `Bearer ${getToken()}` } }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
+        const [statsRes, leadsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/trackers/workspace/${workspaceId}/dashboard-stats`, {
+            headers: { Authorization: `Bearer ${getToken()}` },
+          }),
+          fetch(`${API_BASE_URL}/trackers/workspace/${workspaceId}/lead-engagement`, {
+            headers: { Authorization: `Bearer ${getToken()}` },
+          }),
+        ]);
+
+        if (statsRes.ok) {
+          setStats(await statsRes.json());
         } else {
           setError("Failed to load analytics");
+        }
+
+        if (leadsRes.ok) {
+          const data = await leadsRes.json();
+          setLeads(data.leads ?? []);
         }
       } catch {
         setError("Network error loading analytics");
@@ -103,8 +151,8 @@ export default function AnalyticsView({ workspaceId }: AnalyticsViewProps) {
   );
 
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    fetchAll();
+  }, [fetchAll]);
 
   if (loading) {
     return <ContentLoader loading={true} text="Loading analytics..." />;
@@ -125,7 +173,7 @@ export default function AnalyticsView({ workspaceId }: AnalyticsViewProps) {
 
   return (
     <div className="flex-1 h-full flex flex-col bg-background overflow-y-auto custom-scrollbar animate-in fade-in duration-500">
-      {/* ── Header bar (matches LeadsView pattern) ────────────────── */}
+      {/* ── Header bar ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 py-2.5 border-b border-border/30">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -134,7 +182,7 @@ export default function AnalyticsView({ workspaceId }: AnalyticsViewProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => fetchStats(true)}
+          onClick={() => fetchAll(true)}
           disabled={refreshing}
           className="h-7 gap-1.5 rounded-md px-3 text-xs"
         >
@@ -204,79 +252,117 @@ export default function AnalyticsView({ workspaceId }: AnalyticsViewProps) {
           </div>
         </div>
 
-        {/* ── Two-column layout ────────────────────────────────────── */}
+        {/* ── Two-column layout ─────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* ── Left: Top interactions ──────────────────────────────── */}
+          {/* ── Left: Lead Leaderboard ────────────────────────────── */}
           <section className="lg:col-span-3 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border/30">
-              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                Top Interactions
-              </h2>
+              <div className="flex items-center gap-2">
+                <Trophy className="h-3.5 w-3.5 text-amber-500" />
+                <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                  Lead Engagement
+                </h2>
+              </div>
               <span className="text-[10px] font-bold text-muted-foreground/70">
-                {stats.clickHotspots.length} items
+                {leads.length} leads
               </span>
             </div>
 
             <div className="divide-y divide-border/20">
-              {stats.clickHotspots.length === 0 ? (
+              {leads.length === 0 ? (
                 <div className="px-6 py-12 text-center">
-                  <MousePointerClick className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    No interaction data yet
-                  </p>
+                  <Trophy className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No identified leads yet</p>
                   <p className="text-[11px] text-muted-foreground/70 mt-1">
-                    Page views, clicks, and form submissions will appear here
+                    Once visitors are identified, they'll appear here ranked by activity
                   </p>
                 </div>
               ) : (
-                stats.clickHotspots.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="px-6 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors"
-                  >
-                    {/* Rank */}
-                    <span className="text-[11px] font-bold text-muted-foreground/60 w-5 text-right tabular-nums shrink-0">
-                      {idx + 1}
-                    </span>
+                leads.map((lead, idx) => {
+                  const hue = stringToHue(lead.email || lead.name);
+                  const initials = lead.name
+                    .split(" ")
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w) => w[0].toUpperCase())
+                    .join("");
+                  const rank = RANK_STYLES[idx] ?? null;
 
-                    {/* Type badge */}
-                    <span
-                      className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
-                      style={{
-                        color: eventColor(item.eventType),
-                        backgroundColor: eventColor(item.eventType) + "22",
-                      }}
+                  return (
+                    <div
+                      key={lead.leadId}
+                      className="px-5 py-3.5 flex items-start gap-3.5 hover:bg-muted/40 transition-colors"
                     >
-                      {eventLabel(item.eventType)}
-                    </span>
-
-                    {/* Label + bar */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[13px] font-medium text-foreground truncate">
-                          {item.label}
-                        </span>
-                        <span className="text-xs font-bold text-foreground/80 tabular-nums shrink-0 ml-3">
-                          {item.count}
-                        </span>
+                      {/* Avatar */}
+                      <div
+                        className="h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-[11px] font-black text-white mt-0.5"
+                        style={{
+                          background: `hsl(${hue}, 55%, 50%)`,
+                        }}
+                      >
+                        {initials || "?"}
                       </div>
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
-                          style={{
-                            width: `${item.percent}%`,
-                            backgroundColor: BAR_PALETTE[idx % BAR_PALETTE.length],
-                          }}
-                        />
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {/* Rank badge for top 3 */}
+                            {rank && (
+                              <span className={`text-[11px] shrink-0`}>{rank.icon}</span>
+                            )}
+                            {!rank && (
+                              <span className="text-[10px] font-bold text-muted-foreground/40 tabular-nums shrink-0 w-4">
+                                {idx + 1}
+                              </span>
+                            )}
+                            <span className="text-[13px] font-semibold text-foreground truncate">
+                              {lead.name}
+                            </span>
+                          </div>
+
+                          {/* Event count pill */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Flame className="h-3 w-3 text-orange-400" />
+                            <span className="text-[11px] font-black text-foreground tabular-nums">
+                              {lead.totalEvents}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Email + last seen */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[11px] text-muted-foreground truncate">
+                            {lead.email}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/40 shrink-0">
+                            · {timeAgo(lead.lastSeen)}
+                          </span>
+                        </div>
+
+                        {/* Button text tags */}
+                        {lead.buttonTexts.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {lead.buttonTexts.map((btn, bi) => (
+                              <Badge
+                                key={bi}
+                                variant="secondary"
+                                className="text-[9px] font-semibold px-1.5 py-0 h-4 rounded bg-muted/70 text-muted-foreground border-0 hover:bg-muted"
+                              >
+                                {btn}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </section>
 
-          {/* ── Right column ───────────────────────────────────────── */}
+          {/* ── Right column ────────────────────────────────────────── */}
           <div className="lg:col-span-2 space-y-6">
             {/* Engagement heat score */}
             <section className="bg-card border border-border p-6 rounded-2xl shadow-sm space-y-4">
@@ -284,7 +370,6 @@ export default function AnalyticsView({ workspaceId }: AnalyticsViewProps) {
                 Engagement Heat Score
               </h2>
 
-              {/* Segmented bar */}
               <div className="h-2.5 rounded-full overflow-hidden flex bg-muted">
                 {heat.hot > 0 && (
                   <div className="transition-all duration-700" style={{ width: `${heat.hot}%`, backgroundColor: "#ef4444" }} />
@@ -300,7 +385,6 @@ export default function AnalyticsView({ workspaceId }: AnalyticsViewProps) {
                 )}
               </div>
 
-              {/* Labels */}
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { label: "Hot", value: heat.hot, color: "#ef4444" },
@@ -360,6 +444,71 @@ export default function AnalyticsView({ workspaceId }: AnalyticsViewProps) {
             </section>
           </div>
         </div>
+
+        {/* ── Top Interactions (full-width below) ───────────────────── */}
+        <section className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border/30">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+              Top Interactions
+            </h2>
+            <span className="text-[10px] font-bold text-muted-foreground/70">
+              {stats.clickHotspots.length} items
+            </span>
+          </div>
+
+          <div className="divide-y divide-border/20">
+            {stats.clickHotspots.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <MousePointerClick className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No interaction data yet</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-1">
+                  Page views, clicks, and form submissions will appear here
+                </p>
+              </div>
+            ) : (
+              stats.clickHotspots.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="px-6 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors"
+                >
+                  <span className="text-[11px] font-bold text-muted-foreground/60 w-5 text-right tabular-nums shrink-0">
+                    {idx + 1}
+                  </span>
+
+                  <span
+                    className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
+                    style={{
+                      color: eventColor(item.eventType),
+                      backgroundColor: eventColor(item.eventType) + "22",
+                    }}
+                  >
+                    {eventLabel(item.eventType)}
+                  </span>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[13px] font-medium text-foreground truncate">
+                        {item.label}
+                      </span>
+                      <span className="text-xs font-bold text-foreground/80 tabular-nums shrink-0 ml-3">
+                        {item.count}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${item.percent}%`,
+                          backgroundColor: BAR_PALETTE[idx % BAR_PALETTE.length],
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
       </main>
 
       <style
