@@ -494,6 +494,82 @@ export class TrackerService {
       deviceBreakdown,
     };
   }
+
+  public async getLeadEngagement(workspaceId: string) {
+    const rows = await Event.aggregate([
+      {
+        $match: {
+          workspaceId: new (mongoose.Types.ObjectId as any)(workspaceId),
+          leadId: { $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: "$leadId",
+          totalEvents: { $sum: 1 },
+          lastSeen: { $max: "$timestamp" },
+          buttonTextsRaw: {
+            $push: {
+              $cond: [
+                { $eq: ["$event", "click"] },
+                {
+                  $trim: {
+                    input: {
+                      $ifNull: [
+                        "$data.button_text",
+                        { $ifNull: ["$data.text", ""] },
+                      ],
+                    },
+                  },
+                },
+                null,
+              ],
+            },
+          },
+        },
+      },
+      { $sort: { totalEvents: -1 } },
+      { $limit: 20 },
+      {
+        $lookup: {
+          from: "leads",
+          localField: "_id",
+          foreignField: "_id",
+          as: "lead",
+        },
+      },
+      { $unwind: "$lead" },
+      {
+        $project: {
+          totalEvents: 1,
+          lastSeen: 1,
+          buttonTextsRaw: 1,
+          "lead.name": 1,
+          "lead.email": 1,
+        },
+      },
+    ]);
+
+    return rows.map((r: any) => {
+      // Filter, deduplicate and trim button texts
+      const buttonTexts: string[] = [
+        ...new Set(
+          (r.buttonTextsRaw as (string | null)[])
+            .filter((t): t is string => typeof t === "string" && t.length > 0)
+            .map((t) => t.slice(0, 40))
+        ),
+      ].slice(0, 5);
+
+      return {
+        leadId: r._id,
+        name: r.lead?.name ?? "Unknown",
+        email: r.lead?.email ?? "",
+        totalEvents: r.totalEvents,
+        lastSeen: r.lastSeen,
+        buttonTexts,
+      };
+    });
+  }
 }
 
 export const trackerService = new TrackerService();
