@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { User } from "../../modules/user/user.model";
+import { Subscription } from "../../modules/paymentIntegration/subscription.model";
 import type { AuthenticatedRequest } from "./requireAuth";
 
 async function requirePro(
@@ -14,14 +15,16 @@ async function requirePro(
             return;
         }
 
-        const user = await User.findById(authReq.user.id);
+        const user = await User.findById(authReq.user.id).select("subscriptionId");
 
-        if (!user) {
-            res.status(401).json({ message: "User not found" });
+        if (!user || !user.subscriptionId) {
+            res.status(403).json({ message: "This action requires a Pro subscription" });
             return;
         }
 
-        if (user.subscriptionPlan !== "pro" && user.subscriptionPlan !== "enterprise") {
+        const subscription = await Subscription.findById(user.subscriptionId);
+
+        if (!subscription || subscription.planName === "free") {
             res.status(403).json({ message: "This action requires a Pro subscription" });
             return;
         }

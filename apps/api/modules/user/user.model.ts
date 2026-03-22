@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose";
+import { Schema, model, Types } from "mongoose";
 import type { IUser } from "./user.types";
 
 const userSchema = new Schema<IUser>(
@@ -42,10 +42,9 @@ const userSchema = new Schema<IUser>(
         brandLogoUrl: String,
         brokerageLogoUrl: String,
         brokerageName: String,
-        subscriptionPlan: {
-            type: String,
-            enum: ['free', 'pro', 'enterprise'],
-            default: 'free',
+        subscriptionId: {
+            type: Types.ObjectId,
+            ref: "Subscription",
         },
         avatarUrl: String,
         website: String,
