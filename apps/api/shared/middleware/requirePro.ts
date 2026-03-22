@@ -1,19 +1,20 @@
-import type { NextFunction, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { User } from "../../modules/user/user.model";
 import type { AuthenticatedRequest } from "./requireAuth";
 
 async function requirePro(
-    req: AuthenticatedRequest,
+    req: Request,
     res: Response,
     next: NextFunction,
 ): Promise<void> {
     try {
-        if (!req.user || !req.user.id) {
+        const authReq = req as AuthenticatedRequest;
+        if (!authReq.user || !authReq.user.id) {
             res.status(401).json({ message: "Unauthorized" });
             return;
         }
 
-        const user = await User.findById(req.user.id);
+        const user = await User.findById(authReq.user.id);
 
         if (!user) {
             res.status(401).json({ message: "User not found" });
