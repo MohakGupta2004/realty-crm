@@ -74,6 +74,30 @@ export class TrackerService {
     // 5. Store events
     if (formattedEvents.length > 0) {
       await Event.insertMany(formattedEvents, { ordered: false });
+
+      for (const evt of formattedEvents) {
+        if (!evt) continue;
+        const e = evt as any;
+        if (e.event === "form_submit" || e.event === "identify") {
+          const data = e.data || {};
+          if (data.email) {
+            try {
+              await this.identifyVisitor(
+                apiKey,
+                visitorId,
+                data.email,
+                data.name,
+                origin,
+                data.phone,
+                data.city
+              );
+            } catch (err) {
+              console.error("Auto identify from batch failed", err);
+            }
+          }
+        }
+      }
+
       if (process.env.NODE_ENV !== "production") {
         console.log("Track:", {
           workspace: keyDoc.workspace,
@@ -114,9 +138,9 @@ export class TrackerService {
     const setFields: Record<string, any> = {
       realtorId: keyDoc.user,
     };
-    if (typeof name === "string" && name.trim()) setFields.name = name.slice(0, 100);
-    if (typeof phone === "string" && phone.trim()) setFields.phone = phone.slice(0, 20);
-    if (typeof city === "string" && city.trim()) setFields.city = city.slice(0, 100);
+    if (name) setFields.name = String(name).trim().slice(0, 100);
+    if (phone) setFields.phone = String(phone).trim().slice(0, 20);
+    if (city) setFields.city = String(city).trim().slice(0, 100);
 
     // 4. Handle required fields for NEW leads
     const onInsertFields: Record<string, any> = {
