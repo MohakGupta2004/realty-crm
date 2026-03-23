@@ -37,3 +37,24 @@ export const stripeWebhook = async (
           res.status(status).json({ message: error.message });
      }
 };
+
+export const createPortalSessionHandler = async (
+     req: Request,
+     res: Response,
+) => {
+     try {
+          const authUser = req as AuthenticatedRequest;
+          const user = authUser.user;
+
+     
+          if (!user.stripeCustomerId) {
+               res.status(400).json({ success: false, error: "User does not have an active Stripe customer ID." });
+               return;
+          }
+
+          const url = await PaymentService.createPortalSession(user.stripeCustomerId);
+          res.json({ url });
+     } catch (error: any) {
+          res.status(500).json({ success: false, error: error.message });
+     }
+};

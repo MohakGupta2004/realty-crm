@@ -48,6 +48,16 @@ export class PaymentService {
           return session.url;
      }
 
+     static async createPortalSession(stripeCustomerId: string) {
+          const FRONTEND_URL: string = process.env.FRONTEND_URL!;
+          const session = await this.Stripe.billingPortal.sessions.create({
+               customer: stripeCustomerId,
+               return_url: `${FRONTEND_URL}/dashboard`, // Where they go when they click "Back to app"
+          });
+
+          return session.url;
+     }
+
      static async handleWebhook(
           rawBody: Buffer,
           signature: string,
