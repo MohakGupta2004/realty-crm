@@ -24,7 +24,7 @@ async function requirePro(
 
         const subscription = await Subscription.findById(user.subscriptionId);
 
-        if (!subscription || subscription.planName === "free") {
+        if (!subscription || subscription.planName.toLowerCase() === "free") {
             res.status(403).json({ message: "This action requires a Pro subscription" });
             return;
         }
