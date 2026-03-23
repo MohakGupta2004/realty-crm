@@ -6,7 +6,7 @@ import { SchedulerService } from "./modules/scheduler/scheduler.service";
 async function startServer() {
     await connectDB();
 
-    app.listen(env.PORT, () => {
+    app.listen(env.PORT, "0.0.0.0", () => {
         console.log(
             `Server running on port ${env.PORT} [${env.NODE_ENV}]`,
         );
