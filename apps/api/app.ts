@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { env } from "./shared/config/env.config";
@@ -34,6 +35,16 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000, 
+  limit: 100, 
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { message: "Too many requests, please try again later." }
+});
+app.use(limiter);
+
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 

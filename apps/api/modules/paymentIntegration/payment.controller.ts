@@ -28,7 +28,6 @@ export const stripeWebhook = async (
      }
 
      try {
-          // req.body is a raw Buffer here (express.raw middleware applied on this route)
           await PaymentService.handleWebhook(req.body as Buffer, signature);
           res.status(200).json({ received: true });
      } catch (error: any) {
