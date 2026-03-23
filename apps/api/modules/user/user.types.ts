@@ -21,6 +21,7 @@ export interface IUser extends Document {
     brokerageLogoUrl?: string;
     brokerageName?: string;
     subscriptionId?: Types.ObjectId;
+    stripeCustomerId?: string;
     onboardingComplete?: boolean;
     avatarUrl?: string;
     website?: string;

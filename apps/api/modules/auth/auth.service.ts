@@ -58,8 +58,9 @@ class AuthService {
             password: hashedPassword,
         });
 
-        // Assign a free subscription to every new user by default
-        const freeSub = await Subscription.create(FREE_PLAN);
+        const freeSub =
+            (await Subscription.findOne({ planId: FREE_PLAN.planId })) ??
+            (await Subscription.create(FREE_PLAN));
         await userService.updateUser(String(user._id), { subscriptionId: freeSub._id });
         user.subscriptionId = freeSub._id;
 
@@ -155,8 +156,10 @@ class AuthService {
                 role: "user",
             });
 
-            // Assign a free subscription to every new Google user by default
-            const freeSub = await Subscription.create(FREE_PLAN);
+            // Assign the shared free subscription to every new Google user (create it only once)
+            const freeSub =
+                (await Subscription.findOne({ planId: FREE_PLAN.planId })) ??
+                (await Subscription.create(FREE_PLAN));
             await userService.updateUser(String(user._id), { subscriptionId: freeSub._id });
             user.subscriptionId = freeSub._id;
         }

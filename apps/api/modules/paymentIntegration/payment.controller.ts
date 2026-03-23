@@ -15,3 +15,25 @@ export const getPaymentUrl = async (
           res.status(500).json({ success: false, error: error.message });
      }
 };
+
+export const stripeWebhook = async (
+     req: Request,
+     res: Response,
+): Promise<void> => {
+     const signature = req.headers["stripe-signature"] as string | undefined;
+
+     if (!signature) {
+          res.status(400).json({ message: "Missing Stripe-Signature header" });
+          return;
+     }
+
+     try {
+          // req.body is a raw Buffer here (express.raw middleware applied on this route)
+          await PaymentService.handleWebhook(req.body as Buffer, signature);
+          res.status(200).json({ received: true });
+     } catch (error: any) {
+          const status = error.status ?? 500;
+          console.error("Webhook error:", error.message);
+          res.status(status).json({ message: error.message });
+     }
+};

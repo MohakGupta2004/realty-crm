@@ -46,6 +46,9 @@ const userSchema = new Schema<IUser>(
             type: Types.ObjectId,
             ref: "Subscription",
         },
+        stripeCustomerId: {
+            type: String,
+        },
         avatarUrl: String,
         website: String,
         onboardingComplete: {
