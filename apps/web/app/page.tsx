@@ -15,9 +15,10 @@ import { api } from "@/lib/api";
 // ── Auth state machine ───────────────────────────────────────────────
 // "checking"       → loading spinner while we figure things out
 // "unauthenticated"→ show login modal (providers / email form)
+// "needs-subscription" → show pricing modal
 // "needs-workspace"→ show workspace-creation modal
 // "ready"          → redirect to /dashboard (user has token + workspace)
-type AuthState = "checking" | "unauthenticated" | "needs-workspace" | "ready";
+type AuthState = "checking" | "unauthenticated" | "needs-subscription" | "needs-workspace" | "ready";
 
 export default function Home() {
   const router = useRouter();
@@ -33,6 +34,20 @@ export default function Home() {
 
       // 2. Has token → check for workspace (api handles refresh)
       try {
+        const userRes = await api("/user/me");
+        if (!userRes.ok) {
+          clearToken();
+          setAuthState("unauthenticated");
+          return;
+        }
+        const userData = await userRes.json();
+        const user = userData.user;
+
+        if (!user.isSubscribed) {
+          setAuthState("needs-subscription");
+          return;
+        }
+
         const res = await api("/workspace");
 
         if (!res.ok) {
@@ -92,7 +107,10 @@ export default function Home() {
       <DashboardTable />
 
       {/* Auth modal — shows login or workspace step based on state */}
-      <AuthModal isAuthenticated={authState === "needs-workspace"} />
+      <AuthModal 
+        isAuthenticated={authState === "needs-workspace" || authState === "needs-subscription"} 
+        initialView={authState === "needs-subscription" ? "pricing" : (authState === "needs-workspace" ? "workspace" : undefined)}
+      />
     </div>
   );
 }

@@ -21,6 +21,7 @@ export interface IUser extends Document {
     brokerageLogoUrl?: string;
     brokerageName?: string;
     subscriptionId?: Types.ObjectId;
+    subscriptionPlan?: any;
     stripeCustomerId?: string;
     isSubscribed?: boolean;
     onboardingComplete?: boolean;
@@ -51,6 +52,8 @@ export interface UserResponse {
     brokerageLogoUrl?: string;
     brokerageName?: string;
     subscriptionId?: Types.ObjectId;
+    subscriptionPlan?: any;
     isSubscribed?: boolean;
+    stripeCustomerId?: string;
     website?: string;
 }
