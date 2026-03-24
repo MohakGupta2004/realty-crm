@@ -82,6 +82,8 @@ class UserService {
             brokerageLogoUrl: user.brokerageLogoUrl,
             brokerageName: user.brokerageName,
             subscriptionPlan: user.subscriptionPlan,
+            isSubscribed: user.isSubscribed,
+            stripeCustomerId: user.stripeCustomerId,
             website: user.website,
         };
     }

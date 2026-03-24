@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface Lead {
@@ -98,7 +99,6 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
   const [newStatus, setNewStatus] = useState("To do");
   const [error, setError] = useState<string | null>(null);
 
-  const token = getToken();
 
   // Clear error after 3 seconds
   useEffect(() => {
@@ -112,9 +112,7 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
   const fetchTasks = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/task/workspace/${workspaceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api(`/task/workspace/${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
         setTasks(data.tasks || []);
@@ -124,14 +122,12 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, token]);
+  }, [workspaceId]);
 
   const fetchLeads = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/lead/workspace/${workspaceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api(`/lead/workspace/${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
         setLeads(data.leads || []);
@@ -139,10 +135,11 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
     } catch {
       /* silent */
     }
-  }, [workspaceId, token]);
+  }, [workspaceId]);
 
   const fetchCurrentUser = useCallback(() => {
     try {
+      const token = getToken();
       if (token) {
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -160,14 +157,12 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
     } catch {
       /* silent */
     }
-  }, [token]);
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/memberships/workspace/${workspaceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api(`/memberships/workspace/${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
         const mappedUsers = data.map((m: any) => ({
@@ -179,7 +174,7 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
     } catch {
       /* silent */
     }
-  }, [workspaceId, token]);
+  }, [workspaceId]);
 
   useEffect(() => {
     fetchTasks();
@@ -201,11 +196,10 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
     if (!newTitle.trim()) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/task/create`, {
+      const res = await api("/task/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: newTitle.trim(),
@@ -228,11 +222,10 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
 
   async function handleUpdate(taskId: string, fields: any) {
     try {
-      const res = await fetch(`${API_BASE_URL}/task/details/${taskId}`, {
+      const res = await api(`/task/details/${taskId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(fields),
       });
@@ -249,9 +242,8 @@ export default function TasksView({ workspaceId, subView, userRole }: TasksViewP
   async function handleDelete(taskId: string) {
     if (!confirm("Are you sure you want to delete this task?")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/task/details/${taskId}`, {
+      const res = await api(`/task/details/${taskId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
         const data = await res.json();

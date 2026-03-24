@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Mail, Loader2, Inbox, History, User, ExternalLink, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 
 interface Email {
   _id: string;
@@ -45,13 +45,10 @@ export default function InboxView() {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
-  const token = getToken();
 
   const checkIntegrationStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/emailIntegration/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api("/emailIntegration/status");
       if (res.ok) {
         const data = await res.json();
         setIsConnected(data.isConnected);
@@ -61,13 +58,11 @@ export default function InboxView() {
       setIsConnected(false);
     }
     return false;
-  }, [token]);
+  }, []);
 
   const fetchEmails = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/lead/emails`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api("/lead/emails");
       if (res.ok) {
         const data = await res.json();
         setEmails(data.emails || []);
@@ -77,7 +72,7 @@ export default function InboxView() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -93,9 +88,7 @@ export default function InboxView() {
 
   const handleConnect = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/emailIntegration/google/auth-url`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api("/emailIntegration/google/auth-url");
       if (res.ok) {
         const data = await res.json();
         if (data.url) {

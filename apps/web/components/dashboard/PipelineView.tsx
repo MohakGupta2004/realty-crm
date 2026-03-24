@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface Pipeline {
@@ -153,7 +153,6 @@ export default function PipelineView({ workspaceId }: PipelineViewProps) {
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
 
-  const token = getToken();
   const pipelineDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
@@ -184,12 +183,7 @@ export default function PipelineView({ workspaceId }: PipelineViewProps) {
   const fetchPipelines = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/pipeline/workspace/${workspaceId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await api(`/pipeline/workspace/${workspaceId}`);
       if (res.ok) {
         const data: Pipeline[] = await res.json();
         setPipelines(data);
@@ -202,7 +196,7 @@ export default function PipelineView({ workspaceId }: PipelineViewProps) {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, token, activePipeline]);
+  }, [workspaceId, activePipeline]);
 
   useEffect(() => {
     fetchPipelines();
@@ -213,10 +207,7 @@ export default function PipelineView({ workspaceId }: PipelineViewProps) {
     if (!activePipeline) return;
     setBoardLoading(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/pipeline-stage/kanban/${activePipeline._id}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const res = await api(`/pipeline-stage/kanban/${activePipeline._id}`);
       if (res.ok) {
         const data: KanbanStage[] = await res.json();
         setStages(data);
@@ -226,7 +217,7 @@ export default function PipelineView({ workspaceId }: PipelineViewProps) {
     } finally {
       setBoardLoading(false);
     }
-  }, [activePipeline, token]);
+  }, [activePipeline]);
 
   useEffect(() => {
     fetchKanbanBoard();
@@ -237,9 +228,8 @@ export default function PipelineView({ workspaceId }: PipelineViewProps) {
     if (!window.confirm("Are you sure you want to delete this pipeline?")) return;
     
     try {
-      const res = await fetch(`${API_BASE_URL}/pipeline/details/${pipelineId}`, {
+      const res = await api(`/pipeline/details/${pipelineId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         if (activePipeline?._id === pipelineId) {
@@ -290,11 +280,10 @@ export default function PipelineView({ workspaceId }: PipelineViewProps) {
     });
 
     try {
-      await fetch(`${API_BASE_URL}/pipeline-stage/move-lead`, {
+      await api("/pipeline-stage/move-lead", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ leadId, targetStageId }),
       });
@@ -867,11 +856,10 @@ function LeadDetailPanel({
   async function handleSaveInline(field: string) {
     if (!lead._id) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/lead/details/${lead._id}`, {
+      const res = await api(`/lead/details/${lead._id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify({ [field]: editValue }),
       });
@@ -1154,7 +1142,6 @@ function CreatePipelineModal({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [openColorPicker, setOpenColorPicker] = useState<string | null>(null);
-  const token = getToken();
 
   // Update stages when type changes
   function handleTypeChange(type: "BUYER" | "SELLER") {
@@ -1209,11 +1196,10 @@ function CreatePipelineModal({
 
     try {
       // 1. Create the pipeline with stages
-      const pipelineRes = await fetch(`${API_BASE_URL}/pipeline/create`, {
+      const pipelineRes = await api("/pipeline/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: pipelineName.trim(),
@@ -1483,11 +1469,10 @@ function CreateLeadModal({
         ],
       };
 
-      const res = await fetch(`${API_BASE_URL}/lead/addLeads`, {
+      const res = await api("/lead/addLeads", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify(payload),
       });

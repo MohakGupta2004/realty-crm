@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { ContentLoader } from "@/components/ui/content-loader";
 import { cn } from "@/lib/utils";
 
@@ -31,9 +31,7 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/trackers/workspace/${workspaceId}/tracker-details`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
+      const res = await api(`/trackers/workspace/${workspaceId}/tracker-details`);
       if (res.ok) {
         const data = await res.json();
         setApiKey(data.apiKey || "");
@@ -65,11 +63,10 @@ export default function TrackerView({ workspaceId, userRole = "AGENT" }: Tracker
     setGenerating(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/trackers/generate-api-key`, {
+      const res = await api("/trackers/generate-api-key", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify({
           workspaceId,

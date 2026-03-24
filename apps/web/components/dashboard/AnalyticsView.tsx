@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { ContentLoader } from "@/components/ui/content-loader";
 
 interface AnalyticsViewProps {
@@ -132,18 +132,8 @@ export default function AnalyticsView({ workspaceId }: AnalyticsViewProps) {
 
       try {
         const [statsRes, leadsRes] = await Promise.all([
-          fetch(
-            `${API_BASE_URL}/trackers/workspace/${workspaceId}/dashboard-stats`,
-            {
-              headers: { Authorization: `Bearer ${getToken()}` },
-            },
-          ),
-          fetch(
-            `${API_BASE_URL}/trackers/workspace/${workspaceId}/lead-engagement`,
-            {
-              headers: { Authorization: `Bearer ${getToken()}` },
-            },
-          ),
+          api(`/trackers/workspace/${workspaceId}/dashboard-stats`),
+          api(`/trackers/workspace/${workspaceId}/lead-engagement`),
         ]);
 
         if (statsRes.ok) {

@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Mail, ArrowRight, Loader2, ShieldCheck, Globe } from "lucide-react";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { API_BASE_URL } from "@/lib/auth";
+import { api } from "@/lib/api";
 import EmailAuthForm from "./EmailAuthForm";
 import { cn } from "@/lib/utils";
 import OnboardingForm from "./OnboardingForm";
+import PricingUI from "./PricingUI";
 
 // ── Google Icon (inline SVG) ──────────────────────────────────────────
 function GoogleIcon() {
@@ -37,13 +39,14 @@ function GoogleIcon() {
 
 interface AuthModalProps {
   isAuthenticated: boolean;
+  initialView?: "workspace" | "pricing";
 }
 
-type ModalView = "providers" | "email" | "workspace" | "onboarding";
+type ModalView = "providers" | "email" | "pricing" | "workspace" | "onboarding";
 
-export default function AuthModal({ isAuthenticated }: AuthModalProps) {
+export default function AuthModal({ isAuthenticated, initialView }: AuthModalProps) {
   const [view, setView] = useState<ModalView>(
-    isAuthenticated ? "workspace" : "providers",
+    isAuthenticated ? (initialView || "workspace") : "providers",
   );
   const [workspaceName, setWorkspaceName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,12 +70,10 @@ export default function AuthModal({ isAuthenticated }: AuthModalProps) {
     setIsSubmitting(true);
 
     try {
-      const token = getToken();
-      const res = await fetch(`${API_BASE_URL}/workspace/create`, {
+      const res = await api("/workspace/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ 
           name: workspaceName.trim()
@@ -97,30 +98,32 @@ export default function AuthModal({ isAuthenticated }: AuthModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
       <div className={cn(
         "relative w-full bg-background rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-border/60 overflow-hidden transition-all duration-300",
-        view === "onboarding" ? "max-w-xl" : "max-w-[400px]"
+        view === "pricing" ? "max-w-6xl w-[95vw]" : view === "onboarding" ? "max-w-xl" : "max-w-[400px]"
       )}>
         <div className="p-8 sm:p-10 flex flex-col gap-6">
-          <div className="flex flex-col items-center text-center space-y-4">
-            <Image 
-              src="/logo.png" 
-              alt="RealtyGenie Logo" 
-              width={48} 
-              height={48} 
-              className="object-contain"
-            />
-            <div className="space-y-1.5">
-              <h1 className="text-2xl font-bold tracking-tight">
-                {view === "providers" && "Welcome back"}
-                {view === "workspace" && "Create Workspace"}
-                {view === "onboarding" && "Complete Your Profile"}
-              </h1>
-              <p className="text-sm text-muted-foreground/80">
-                {view === "providers" && "Choose how you'd like to continue"}
-                {view === "workspace" && "Let's name your professional portal"}
-                {view === "onboarding" && "Almost there! Just a few more details"}
-              </p>
+          {view !== "pricing" && (
+            <div className="flex flex-col items-center text-center space-y-4">
+              <Image 
+                src="/logo.png" 
+                alt="RealtyGenie Logo" 
+                width={48} 
+                height={48} 
+                className="object-contain"
+              />
+              <div className="space-y-1.5">
+                <h1 className="text-2xl font-bold tracking-tight">
+                  {view === "providers" && "Welcome back"}
+                  {view === "workspace" && "Create Workspace"}
+                  {view === "onboarding" && "Complete Your Profile"}
+                </h1>
+                <p className="text-sm text-muted-foreground/80">
+                  {view === "providers" && "Choose how you'd like to continue"}
+                  {view === "workspace" && "Let's name your professional portal"}
+                  {view === "onboarding" && "Almost there! Just a few more details"}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="w-full">
             {/* ── Providers view ──────────────────────────────────────── */}
@@ -156,6 +159,13 @@ export default function AuthModal({ isAuthenticated }: AuthModalProps) {
                   onBack={() => setView("providers")}
                   onSuccess={handleEmailSuccess}
                 />
+              </div>
+            )}
+
+            {/* ── Pricing view ──────────────────────────────────────── */}
+            {view === "pricing" && (
+              <div className="w-full animate-in fade-in zoom-in-95 duration-500">
+                <PricingUI />
               </div>
             )}
 
