@@ -46,29 +46,6 @@ const TIERS: PricingTier[] = [
     ],
   },
   {
-    id: "crm-assistant",
-    name: "CRM Assistant",
-    price: "$149",
-    subtitle:
-      "Your own dedicated assistant to handle everything your CRM demands — so you can focus on selling, not admin.",
-    priceId: "price_1TEFHvFMnRk4uee2mzj8Rm4k",
-    commitment: "1 year commitment",
-    features: [
-      {
-        title: "Lead Handling",
-        desc: "Your assistant manages incoming leads so nothing falls through the cracks.",
-      },
-      {
-        title: "Nurture Campaigns",
-        desc: "Email and drip campaigns built and launched on your behalf.",
-      },
-      {
-        title: "Reporting and task management",
-        desc: "Generate regular reports and ensure all tasks are completed",
-      },
-    ],
-  },
-  {
     id: "core-idx",
     name: "Core CRM + IDX",
     price: "$149",
@@ -134,52 +111,6 @@ const TIERS: PricingTier[] = [
       },
     ],
   },
-  {
-    id: "custom-lead",
-    name: "Custom Lead Packages",
-    price: "$499",
-    subtitle:
-      "We generate and deliver a fixed number of qualified leads directly to you every month — so you always know what's in your pipeline.",
-    priceId: "price_1TEFLwFMnRk4uee277vUIaY0",
-    isCustom: true,
-    commitment: "Minimum 6-month commitment.",
-    footer:
-      "Lead volume and package pricing vary by area and property value. Contact us to get a custom quote tailored to your market.",
-    features: [
-      {
-        title: "Fixed Lead Volume",
-        desc: "Guaranteed lead count every month — no surprises, no slow months.",
-      },
-      {
-        title: "Market-Specific",
-        desc: "Lead volume is tailored to your area, property type, and local competition.",
-      },
-      {
-        title: "Price-Tier Matched",
-        desc: "Packages scale based on property value in your target market for maximum ROI.",
-      },
-      {
-        title: "Core CRM Pre-requisite",
-        desc: "To be able to run lead campaigns effectively, at least a core CRM subscription is needed.",
-      },
-    ],
-  },
-  {
-    id: "lead-gen",
-    name: "Lead Generation",
-    price: "$999",
-    subtitle:
-      "We run your entire lead generation strategy — customized for your market, listings, and goals. No guessing. No time wasted. Includes everything in Advances AI CRM.",
-    priceId: "price_1TEFKdFMnRk4uee2hLpk9G8v",
-    commitment: "Minimum 6-month commitment",
-    features: [
-      { title: "Meta, TikTok & YouTube Ads", desc: "" },
-      { title: "Google PPC", desc: "" },
-      { title: "Retargeting & Geo-Targeted Campaigns", desc: "" },
-      { title: "Landing Page Optimization", desc: "" },
-      { title: "ROI Tracking & Event Marketing", desc: "" },
-    ],
-  },
 ];
 
 export default function PricingUI() {
@@ -217,12 +148,14 @@ export default function PricingUI() {
           Choose the perfect plan to accelerate your real estate business.
         </p>
         {error && (
-          <p className="text-[11px] font-medium text-destructive mt-1">{error}</p>
+          <p className="text-[11px] font-medium text-destructive mt-1">
+            {error}
+          </p>
         )}
       </div>
 
       {/* Horizontal scrollable container for plans */}
-      <div className="w-full flex overflow-x-auto pb-6 pt-5 snap-x snap-mandatory gap-4 px-4 md:px-8 hide-scrollbar">
+      <div className="w-full flex overflow-x-auto pb-6 pt-5 snap-x snap-mandatory gap-4 px-4 md:px-0 hide-scrollbar justify-start md:justify-center">
         {TIERS.map((tier) => (
           <div
             key={tier.id}
@@ -280,11 +213,15 @@ export default function PricingUI() {
             <div className="mt-6 space-y-3">
               <div className="bg-primary/5 rounded-lg p-2.5 text-[11px] text-foreground/80 space-y-1 border border-primary/10">
                 {tier.commitment && (
-                  <div 
+                  <div
                     className="font-semibold flex items-center gap-1 cursor-help group/info hover:text-primary transition-colors"
-                    onClick={() => setExpandedId(expandedId === tier.id ? null : tier.id)}
+                    onClick={() =>
+                      setExpandedId(expandedId === tier.id ? null : tier.id)
+                    }
                   >
-                    <Info className={`h-3 w-3 transition-transform ${expandedId === tier.id ? "rotate-180 text-primary" : "group-hover/info:scale-110"}`} />
+                    <Info
+                      className={`h-3 w-3 transition-transform ${expandedId === tier.id ? "rotate-180 text-primary" : "group-hover/info:scale-110"}`}
+                    />
                     {tier.commitment}
                   </div>
                 )}
