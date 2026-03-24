@@ -2,7 +2,8 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 function InviteContent() {
@@ -39,14 +40,9 @@ function InviteContent() {
   async function joinWorkspace() {
     setPendingConfirm(false);
     setLoading(true);
-    const authToken = getToken();
-    
     try {
-      const res = await fetch(`${API_BASE_URL}/memberships/join/${token}`, {
+      const res = await api(`/memberships/join/${token}`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${authToken}`
-        }
       });
       
       const data = await res.json();

@@ -27,7 +27,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { API_BASE_URL } from "@/lib/auth";
+import { api } from "@/lib/api";
 import Papa from "papaparse";
 import {
   Dialog,
@@ -234,8 +235,7 @@ export default function LeadsView({
   const [submitting, setSubmitting] = useState(false);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-  const token = getToken();
-
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   let currentUserId = "";
   if (token) {
     try {
@@ -247,9 +247,7 @@ export default function LeadsView({
   const fetchLeads = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/lead/workspace/${workspaceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api(`/lead/workspace/${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
         setLeads(data.leads || []);
@@ -259,17 +257,12 @@ export default function LeadsView({
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, token]);
+  }, [workspaceId]);
 
   const fetchPipelines = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/pipeline/workspace/${workspaceId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await api(`/pipeline/workspace/${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
         setPipelines(data || []);
@@ -277,14 +270,11 @@ export default function LeadsView({
     } catch {
       /* silent */
     }
-  }, [workspaceId, token]);
+  }, [workspaceId]);
 
   const fetchCurrentUser = useCallback(async () => {
-    if (!token) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/user/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api("/user/me");
       if (res.ok) {
         const data = await res.json();
         // The API might return user directly or inside an object
@@ -294,7 +284,7 @@ export default function LeadsView({
     } catch (err) {
       console.error("Failed to fetch user:", err);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchLeads();
@@ -326,11 +316,10 @@ export default function LeadsView({
       const fullPhone = newPhone.trim()
         ? `${newCountryCode} ${newPhone.trim()}`
         : "";
-      const res = await fetch(`${API_BASE_URL}/lead/create`, {
+      const res = await api("/lead/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: newName.trim(),
@@ -363,13 +352,9 @@ export default function LeadsView({
 
   async function handleDeletePipeline(pipelineId: string) {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/pipeline/details/${pipelineId}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await api(`/pipeline/details/${pipelineId}`, {
+        method: "DELETE",
+      });
       if (res.ok) {
         fetchPipelines();
         fetchLeads();
@@ -392,11 +377,10 @@ export default function LeadsView({
         finalValue = match ? match[1] : value.trim();
       }
 
-      const res = await fetch(`${API_BASE_URL}/lead/details/${leadId}`, {
+      const res = await api(`/lead/details/${leadId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ [field]: finalValue }),
       });
@@ -442,9 +426,8 @@ export default function LeadsView({
     try {
       // Create a sequential delete queue
       for (const id of selectedLeadIds) {
-        await fetch(`${API_BASE_URL}/lead/details/${id}`, {
+        await api(`/lead/details/${id}`, {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
         });
       }
       setSelectedLeadIds(new Set());
@@ -1644,11 +1627,10 @@ function CsvUploadModal({
         }
 
         try {
-          const res = await fetch(`${API_BASE_URL}/lead/addLeads`, {
+          const res = await api("/lead/addLeads", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${getToken()}`,
             },
             body: JSON.stringify({ leads, workspaceId }),
           });
@@ -1773,15 +1755,11 @@ function NotesTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
   const [newNoteBody, setNewNoteBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const token = getToken();
 
   const fetchNotes = useCallback(async () => {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/note/lead/${lead._id}/workspace/${workspaceId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+      const res = await api(
+        `/note/lead/${lead._id}/workspace/${workspaceId}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -1792,7 +1770,7 @@ function NotesTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [lead._id, workspaceId, token]);
+  }, [lead._id, workspaceId]);
 
   useEffect(() => {
     fetchNotes();
@@ -1802,11 +1780,10 @@ function NotesTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
     if (!newNoteBody.trim()) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/note/create`, {
+      const res = await api("/note/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: "Untitled",
@@ -1934,15 +1911,11 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
     field: string;
   } | null>(null);
   const [editValue, setEditValue] = useState("");
-  const token = getToken();
 
   const fetchTasks = useCallback(async () => {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/task/lead/${lead._id}/workspace/${workspaceId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+      const res = await api(
+        `/task/lead/${lead._id}/workspace/${workspaceId}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -1951,7 +1924,7 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
     } catch {
       /* silent */
     }
-  }, [lead._id, workspaceId, token]);
+  }, [lead._id, workspaceId]);
 
   useEffect(() => {
     fetchTasks();
@@ -1960,11 +1933,10 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
   async function handleCreateTask() {
     if (!newTaskTitle.trim()) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/task/create`, {
+      const res = await api("/task/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: newTaskTitle.trim(),
@@ -1989,11 +1961,10 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
   ) {
     if (editingCell) setEditingCell(null);
     try {
-      await fetch(`${API_BASE_URL}/task/details/${taskId}`, {
+      await api(`/task/details/${taskId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ [field]: value }),
       });
@@ -2076,9 +2047,8 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
             <button
               onClick={async () => {
                 if (!confirm("Delete this task?")) return;
-                await fetch(`${API_BASE_URL}/task/details/${task._id}`, {
+                await api(`/task/details/${task._id}`, {
                   method: "DELETE",
-                  headers: { Authorization: `Bearer ${token}` },
                 });
                 fetchTasks();
               }}
@@ -2141,16 +2111,10 @@ function EmailsTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
     isConnected: boolean;
     email?: string;
   }>({ isConnected: false });
-  const token = getToken();
 
   const fetchCommunications = useCallback(async () => {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/lead/details/${lead._id}/emails`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await api(`/lead/details/${lead._id}/emails`);
       if (res.ok) {
         const data = await res.json();
         setCommunications(data.emails || []);
@@ -2160,14 +2124,12 @@ function EmailsTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [lead._id, token]);
+  }, [lead._id]);
 
   const fetchIntegrationStatus = useCallback(async () => {
     setLoadingIntegration(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/emailIntegration/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api("/emailIntegration/status");
       if (res.ok) {
         const data = await res.json();
         setIntegrationStatus(data);
@@ -2177,7 +2139,7 @@ function EmailsTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
     } finally {
       setLoadingIntegration(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchCommunications();
@@ -2186,12 +2148,7 @@ function EmailsTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
 
   async function handleConnect() {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/emailIntegration/google/auth-url`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await api("/emailIntegration/google/auth-url");
       if (res.ok) {
         const data = await res.json();
         if (data.url) {
@@ -2352,17 +2309,15 @@ function EmailDraftForm({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
-  const token = getToken();
 
   async function handleSend() {
     if (!subject.trim() || !body.trim()) return;
     setSending(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/emailIntegration/send`, {
+      const res = await api("/emailIntegration/send", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           leadId: lead._id,
@@ -2477,13 +2432,9 @@ function TimelineTab({
 }) {
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const token = getToken();
-
   const fetchActivities = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/activity/lead/${lead._id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api(`/activity/lead/${lead._id}`);
       if (res.ok) {
         const data = await res.json();
         setActivities(data.activities || []);
@@ -2493,7 +2444,7 @@ function TimelineTab({
     } finally {
       setLoading(false);
     }
-  }, [lead._id, token]);
+  }, [lead._id]);
 
   useEffect(() => {
     fetchActivities();

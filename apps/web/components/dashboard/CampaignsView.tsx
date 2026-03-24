@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 import CampaignCanvas from "./CampaignCanvas";
 import { ContentLoader } from "@/components/ui/content-loader";
 
@@ -85,15 +85,12 @@ export default function CampaignsView({
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const token = getToken();
 
   // ── Fetch campaigns ───────────────────────────────────────────────────
   const fetchCampaigns = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/campaign/${workspaceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api(`/campaign/${workspaceId}`);
       if (res.ok) {
         const result = await res.json();
         setCampaigns(Array.isArray(result.data) ? result.data : []);
@@ -103,7 +100,7 @@ export default function CampaignsView({
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, token]);
+  }, [workspaceId]);
 
   useEffect(() => {
     fetchCampaigns();
@@ -126,11 +123,10 @@ export default function CampaignsView({
     setFormError("");
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/campaign/create`, {
+      const res = await api("/campaign/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: newName.trim(),
@@ -189,9 +185,8 @@ export default function CampaignsView({
     setSubmitting(true);
     try {
       for (const id of selectedCampaignIds) {
-        await fetch(`${API_BASE_URL}/campaign/${id}`, {
+        await api(`/campaign/${id}`, {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
         });
       }
       setSelectedCampaignIds(new Set());
@@ -623,11 +618,8 @@ function CampaignLeadsTab({
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/lead/campaign/${campaign._id}/workspace/${workspaceId}`,
-        {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        },
+      const res = await api(
+        `/lead/campaign/${campaign._id}/workspace/${workspaceId}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -646,12 +638,7 @@ function CampaignLeadsTab({
   useEffect(() => {
     const fetchSteps = async () => {
       try {
-        const res = await fetch(
-          `${API_BASE_URL}/campaign/${campaign._id}/steps`,
-          {
-            headers: { Authorization: `Bearer ${getToken()}` },
-          },
-        );
+        const res = await api(`/campaign/${campaign._id}/steps`);
         if (res.ok) {
           const data = await res.json();
           setSteps(data.data || []);
@@ -899,15 +886,8 @@ function CampaignEngagementTab({
     setLoading(true);
     try {
       const [leadsRes, stepsRes] = await Promise.all([
-        fetch(
-          `${API_BASE_URL}/lead/campaign/${campaign._id}/workspace/${workspaceId}`,
-          {
-            headers: { Authorization: `Bearer ${getToken()}` },
-          },
-        ),
-        fetch(`${API_BASE_URL}/campaign/${campaign._id}/steps`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        }),
+        api(`/lead/campaign/${campaign._id}/workspace/${workspaceId}`),
+        api(`/campaign/${campaign._id}/steps`),
       ]);
 
       if (leadsRes.ok && stepsRes.ok) {
@@ -1051,12 +1031,7 @@ function AddLeadsToCampaignModal({
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const res = await fetch(
-          `${API_BASE_URL}/lead/workspace/${workspaceId}`,
-          {
-            headers: { Authorization: `Bearer ${getToken()}` },
-          },
-        );
+        const res = await api(`/lead/workspace/${workspaceId}`);
         if (res.ok) {
           const data = await res.json();
           setAllLeads(data.leads || []);
@@ -1083,11 +1058,10 @@ function AddLeadsToCampaignModal({
     if (selectedIds.size === 0) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/lead/assignCampaingToLeads`, {
+      const res = await api("/lead/assignCampaingToLeads", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify({
           leads: Array.from(selectedIds),

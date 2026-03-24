@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface Lead {
@@ -78,14 +78,11 @@ export default function NotesView({ workspaceId }: NotesViewProps) {
   } | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  const token = getToken();
 
   const fetchNotes = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/note/workspace/${workspaceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api(`/note/workspace/${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
         setNotes(data.notes || []);
@@ -95,14 +92,12 @@ export default function NotesView({ workspaceId }: NotesViewProps) {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, token]);
+  }, [workspaceId]);
 
   const fetchLeads = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/lead/workspace/${workspaceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api(`/lead/workspace/${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
         setLeads(data.leads || []);
@@ -110,7 +105,7 @@ export default function NotesView({ workspaceId }: NotesViewProps) {
     } catch {
       /* silent */
     }
-  }, [workspaceId, token]);
+  }, [workspaceId]);
 
   useEffect(() => {
     fetchNotes();
@@ -121,11 +116,10 @@ export default function NotesView({ workspaceId }: NotesViewProps) {
     if (!newTitle.trim()) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/note/create`, {
+      const res = await api("/note/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: newTitle.trim(),
@@ -150,11 +144,10 @@ export default function NotesView({ workspaceId }: NotesViewProps) {
 
   async function handleUpdate(noteId: string, fields: any) {
     try {
-      const res = await fetch(`${API_BASE_URL}/note/details/${noteId}`, {
+      const res = await api(`/note/details/${noteId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(fields),
       });
@@ -167,9 +160,8 @@ export default function NotesView({ workspaceId }: NotesViewProps) {
   async function handleDelete(noteId: string) {
     if (!confirm("Are you sure you want to delete this note?")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/note/details/${noteId}`, {
+      const res = await api(`/note/details/${noteId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) fetchNotes();
     } catch {

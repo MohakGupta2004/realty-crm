@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, X } from "lucide-react";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 
 export function CreateWorkspaceModal({
   isOpen,
@@ -31,12 +31,10 @@ export function CreateWorkspaceModal({
     setIsSubmitting(true);
 
     try {
-      const token = getToken();
-      const res = await fetch(`${API_BASE_URL}/workspace/create`, {
+      const res = await api("/workspace/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ 
           name: workspaceName.trim()

@@ -18,7 +18,7 @@ import "@xyflow/react/dist/style.css";
 import { X, Play, Clock, Plus, PenSquare, Trash2, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 
 // --- Types ---
 interface CampaignStep {
@@ -129,12 +129,8 @@ export default function CampaignCanvas({
   const fetchCampaignInfo = useCallback(async () => {
     try {
       const [stepsRes, progressRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/campaign/${campaignId}/steps`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        }),
-        fetch(`${API_BASE_URL}/campaign/progress/${campaignId}`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        })
+        api(`/campaign/${campaignId}/steps`),
+        api(`/campaign/progress/${campaignId}`)
       ]);
 
       if (stepsRes.ok) {
@@ -145,11 +141,10 @@ export default function CampaignCanvas({
         if (fetchedSteps.length === 0 && !isCreatingDefault.current) {
           isCreatingDefault.current = true;
           try {
-            const createRes = await fetch(`${API_BASE_URL}/campaign/step/create`, {
+            const createRes = await api("/campaign/step/create", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${getToken()}`,
               },
               body: JSON.stringify({
                 campaignId,
@@ -180,9 +175,7 @@ export default function CampaignCanvas({
       }
 
       // Also get actual campaign status
-      const campaignRes = await fetch(`${API_BASE_URL}/campaign/details/${campaignId}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
+      const campaignRes = await api(`/campaign/details/${campaignId}`);
       if (campaignRes.ok) {
         const data = await campaignRes.json();
         setCampaignStatus(data.data?.status || "created");
@@ -215,9 +208,8 @@ export default function CampaignCanvas({
   const handleDeleteStep = useCallback(async (step: CampaignStep) => {
     if (!confirm(`Are you sure you want to delete step: ${step.subject}?`)) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/campaign/step/${step._id}`, {
+      const res = await api(`/campaign/step/${step._id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (res.ok) {
         fetchSteps();
@@ -238,9 +230,8 @@ export default function CampaignCanvas({
     setStarting(true);
     try {
       // 1. Fetch leads for this campaign
-      const leadsRes = await fetch(
-        `${API_BASE_URL}/lead/campaign/${campaignId}/workspace/${workspaceId}`,
-        { headers: { Authorization: `Bearer ${getToken()}` } }
+      const leadsRes = await api(
+        `/lead/campaign/${campaignId}/workspace/${workspaceId}`
       );
       if (!leadsRes.ok) throw new Error("Could not fetch campaign leads");
       const leadsData = await leadsRes.json();
@@ -260,11 +251,10 @@ export default function CampaignCanvas({
       }));
 
       // 3. Start campaign
-      const startRes = await fetch(`${API_BASE_URL}/campaign/start`, {
+      const startRes = await api("/campaign/start", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify({ campaignId, leads: formattedLeads }),
       });
@@ -286,11 +276,10 @@ export default function CampaignCanvas({
   const handleStopCampaign = async () => {
     setStopping(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/campaign/stop`, {
+      const res = await api("/campaign/stop", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify({ campaignId }),
       });
@@ -547,11 +536,10 @@ function StepEditorModal({
     };
 
     try {
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const res = await api(endpoint, {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify(payload),
       });

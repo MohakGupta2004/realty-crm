@@ -22,7 +22,7 @@ import {
   ShieldCheck,
   Search
 } from "lucide-react";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { CANADA_CITIES } from "@/lib/constants";
 
@@ -147,11 +147,8 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
     body.append("file", file);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/upload/image`, {
+      const res = await api("/upload/image", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-        },
         body,
       });
 
@@ -179,11 +176,10 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/user/onboarding`, {
+      const res = await api("/user/onboarding", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify(formData),
       });

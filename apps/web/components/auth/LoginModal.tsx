@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Mail, ArrowRight, Loader2, ShieldCheck, Globe } from "lucide-react";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { API_BASE_URL } from "@/lib/auth";
+import { api } from "@/lib/api";
 import EmailAuthForm from "./EmailAuthForm";
 import { cn } from "@/lib/utils";
 import OnboardingForm from "./OnboardingForm";
@@ -67,12 +68,10 @@ export default function AuthModal({ isAuthenticated }: AuthModalProps) {
     setIsSubmitting(true);
 
     try {
-      const token = getToken();
-      const res = await fetch(`${API_BASE_URL}/workspace/create`, {
+      const res = await api("/workspace/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ 
           name: workspaceName.trim()

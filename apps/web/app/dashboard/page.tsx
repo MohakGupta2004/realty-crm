@@ -15,11 +15,10 @@ import TrackerView from "@/components/dashboard/TrackerView";
 import AnalyticsView from "@/components/dashboard/AnalyticsView";
 import type { ActiveViewType } from "@/components/dashboard/Sidebar";
 import {
-  getToken,
   clearToken,
-  tryRefreshToken,
   API_BASE_URL,
 } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { Menu, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -44,32 +43,8 @@ function DashboardContent() {
 
   const refreshWorkspaces = useCallback(
     async (newWorkspaceId?: string) => {
-      const token = getToken();
-      if (!token) {
-        router.replace("/");
-        return;
-      }
-
-      async function doFetch(authToken: string) {
-        return fetch(`${API_BASE_URL}/workspace`, {
-          headers: { Authorization: `Bearer ${authToken}` },
-          credentials: "include",
-        });
-      }
-
       try {
-        let res = await doFetch(token);
-
-        if (res.status === 401) {
-          const refreshed = await tryRefreshToken();
-          if (refreshed) {
-            res = await doFetch(getToken()!);
-          } else {
-            clearToken();
-            router.replace("/");
-            return;
-          }
-        }
+        const res = await api("/workspace");
 
         if (!res.ok) {
           clearToken();

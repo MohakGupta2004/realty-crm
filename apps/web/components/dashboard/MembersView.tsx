@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Link as LinkIcon, Users, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { API_BASE_URL, getToken } from "@/lib/auth";
+import { api } from "@/lib/api";
 
 interface Member {
   _id: string;
@@ -17,14 +17,11 @@ export default function MembersView({ workspaceId, userRole }: { workspaceId: st
   const [inviteLink, setInviteLink] = useState("");
   const [copied, setCopied] = useState(false);
   const [generatingLink, setGeneratingLink] = useState(false);
-  const token = getToken();
 
   useEffect(() => {
     async function fetchMembers() {
       try {
-        const res = await fetch(`${API_BASE_URL}/memberships/workspace/${workspaceId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api(`/memberships/workspace/${workspaceId}`);
         if (res.ok) {
           const data = await res.json();
           setMembers(data);
@@ -36,14 +33,12 @@ export default function MembersView({ workspaceId, userRole }: { workspaceId: st
       }
     }
     fetchMembers();
-  }, [workspaceId, token]);
+  }, [workspaceId]);
 
   const generateLink = async () => {
     setGeneratingLink(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/memberships/invite/${workspaceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api(`/memberships/invite/${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
         // Assuming the app runs on window.location.origin

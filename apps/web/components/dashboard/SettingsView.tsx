@@ -24,7 +24,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { getToken, API_BASE_URL, clearToken } from "@/lib/auth";
+import { api } from "@/lib/api";
+import { clearToken } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { CANADA_CITIES } from "@/lib/constants";
 
@@ -72,9 +73,7 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
   useEffect(() => {
     async function fetchProfile() {
       try {
-        const res = await fetch(`${API_BASE_URL}/user/me`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
+        const res = await api("/user/me");
         if (!res.ok) throw new Error("Failed to fetch profile");
         const data = await res.json();
         const user = data.user;
@@ -137,9 +136,8 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
     body.append("file", file);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/upload/image`, {
+      const res = await api("/upload/image", {
         method: "POST",
-        headers: { Authorization: `Bearer ${getToken()}` },
         body,
       });
 
@@ -159,11 +157,10 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
     setSaving(true);
     try {
       // Update User Profile
-      const userRes = await fetch(`${API_BASE_URL}/user/me`, {
+      const userRes = await api("/user/me", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify({
           ...formData,
@@ -192,9 +189,8 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
 
     setDeleting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/user/me`, {
+      const res = await api("/user/me", {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${getToken()}` },
       });
 
       if (!res.ok) throw new Error("Deletion failed");
