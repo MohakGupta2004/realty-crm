@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { clearToken, getToken } from "@/lib/auth";
+import { getToken, logout } from "@/lib/auth";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { CreateWorkspaceModal } from "@/components/dashboard/CreateWorkspaceModal";
 
@@ -89,9 +89,9 @@ export default function Sidebar({
   const activeWorkspace = workspaces.find((w) => w._id === activeWorkspaceId);
   const displayWorkspaceName = activeWorkspace?.name || "Workspace";
 
-  function handleLogout() {
-    clearToken();
-    router.push("/");
+  async function handleLogout() {
+    await logout();
+    router.replace("/");
   }
 
   function handleWebsiteBuilderClick() {

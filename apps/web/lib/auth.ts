@@ -8,6 +8,7 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost
 
 const TOKEN_KEY = "accessToken";
 const LEGACY_TOKEN_KEY = "token";
+const LOGOUT_FLAG_KEY = "logoutRequested";
 
 type JwtPayload = {
   exp?: number;
@@ -17,6 +18,21 @@ type JwtPayload = {
 };
 
 let refreshPromise: Promise<boolean> | null = null;
+
+function isLogoutRequested(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(LOGOUT_FLAG_KEY) === "true";
+}
+
+function markLogoutRequested(): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LOGOUT_FLAG_KEY, "true");
+}
+
+function clearLogoutRequested(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(LOGOUT_FLAG_KEY);
+}
 
 function readStorageToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -47,6 +63,7 @@ function parseJwt(token: string): JwtPayload | null {
 
 /** Save the JWT access token to localStorage */
 export function setToken(token: string): void {
+  clearLogoutRequested();
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(LEGACY_TOKEN_KEY, token);
 }
@@ -60,6 +77,25 @@ export function getToken(): string | null {
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
+}
+
+/** Clear local auth state and ask the API to clear the refresh cookie */
+export async function logout(): Promise<void> {
+  markLogoutRequested();
+  clearToken();
+
+  if (typeof window !== "undefined") {
+    sessionStorage.removeItem("postLoginRedirect");
+  }
+
+  try {
+    await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    // Local state is already cleared; ignore network failures here.
+  }
 }
 
 export function getTokenPayload(): JwtPayload | null {
@@ -89,6 +125,11 @@ export function isLoggedIn(): boolean {
  * Returns `true` if a new access token was obtained, `false` otherwise.
  */
 export async function tryRefreshToken(): Promise<boolean> {
+  if (isLogoutRequested()) {
+    clearToken();
+    return false;
+  }
+
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
@@ -122,6 +163,11 @@ export async function tryRefreshToken(): Promise<boolean> {
 }
 
 export async function ensureValidAccessToken(): Promise<string | null> {
+  if (isLogoutRequested()) {
+    clearToken();
+    return null;
+  }
+
   const token = getToken();
   if (token && !isTokenExpired(token)) {
     return token;
