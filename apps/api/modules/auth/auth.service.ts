@@ -179,10 +179,12 @@ class AuthService {
     // Create or update email integration if we have refresh_token (offline access)
     if (tokens.refresh_token) {
       console.log("GUDl ", tokens.refresh_token);
-      await emailIntegrationService.createOrUpdateIntegration(
+      const response = await emailIntegrationService.createOrUpdateIntegration(
         String(user._id),
         tokens,
       );
+
+      console.log("GUDL response ", response);
     } else {
       console.log("Pramit nudes");
     }
@@ -197,9 +199,7 @@ class AuthService {
   }
 
   // ── Refresh ───────────────────────────────────────────────────────
-  async refresh(
-    refreshToken: string,
-  ): Promise<{
+  async refresh(refreshToken: string): Promise<{
     accessToken: string;
     refreshToken: string;
     user: UserResponse;
