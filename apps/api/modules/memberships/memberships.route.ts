@@ -10,18 +10,19 @@ import {
     generateInviteLink,
     joinWorkspace,
 } from "./memberships.controller";
+import { validate } from "../../shared/middleware/validate";
+import { addMembersSchema, updateMemberSchema, membershipIdParamSchema, workspaceIdParamSchema, tokenParamSchema } from "./memberships.schema";
 
 const router = Router();
 
 router.use(requireAuth);
-router.use(requirePro);
 
-router.post("/add-members", addMembers);
-router.get("/workspace/:workspaceId", getMembers);
-router.get("/invite/:workspaceId", generateInviteLink);
-router.post("/join/:token", joinWorkspace);
-router.get("/:id", getMember);
-router.patch("/:id", updateMember);
-router.delete("/:id", removeMember);
+router.post("/add", validate({ body: addMembersSchema }), addMembers);
+router.get("/workspace/:workspaceId", validate({ params: workspaceIdParamSchema }), getMembers);
+router.get("/invite/:workspaceId", validate({ params: workspaceIdParamSchema }), generateInviteLink);
+router.post("/join/:token", validate({ params: tokenParamSchema }), joinWorkspace);
+router.get("/:id", validate({ params: membershipIdParamSchema }), getMember);
+router.patch("/:id", validate({ params: membershipIdParamSchema, body: updateMemberSchema }), updateMember);
+router.delete("/:id", validate({ params: membershipIdParamSchema }), removeMember);
 
 export default router;
