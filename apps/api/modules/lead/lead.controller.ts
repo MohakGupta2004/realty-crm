@@ -122,10 +122,6 @@ export async function assignCampaingToLeads(req: Request, res: Response) {
         const authReq = req as AuthenticatedRequest;
         const userId = authReq.user.id;
         const { leads, workspaceId, campaignId } = req.body;
-        if (!leads || !Array.isArray(leads) || !leads.length || !campaignId || !workspaceId) {
-            res.status(400).json({ message: "leads (array), campaignId, and workspaceId are required" });
-            return;
-        }
         const updatedLeads = await LeadService.assignCampaingToLeads(leads, campaignId, userId, workspaceId);
         res.status(200).json({ leads: updatedLeads });
     } catch (error: any) {
@@ -137,13 +133,8 @@ export async function getLeadsByCampaing(req: Request, res: Response) {
     try {
         const authReq = req as AuthenticatedRequest;
         const userId = authReq.user.id;
-        const campaignId = req.params.campaignId as string;
-        const workspaceId = req.params.workspaceId as string;
-        if (!campaignId || !workspaceId) {
-            res.status(400).json({ message: "campaignId and workspaceId are required" });
-            return;
-        }
-        const leads = await LeadService.getLeadsByCampaing(campaignId, userId, workspaceId);
+        const { campaignId, workspaceId } = req.params;
+        const leads = await LeadService.getLeadsByCampaing(campaignId as string, userId, workspaceId as string);
         res.status(200).json({ leads });
     } catch (error: any) {
         res.status(400).json({ message: error.message || "Failed to fetch leads" });

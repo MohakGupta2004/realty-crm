@@ -21,16 +21,7 @@ const REFRESH_COOKIE_OPTIONS = {
 // ── POST /auth/register ──────────────────────────────────────────────
 export async function register(req: Request, res: Response): Promise<void> {
   try {
-    const result = registerSchema.safeParse(req.body);
-    if (!result.success) {
-      res.status(400).json({
-        message: "Validation failed",
-        errors: result.error.flatten(),
-      });
-      return;
-    }
-
-    const { name, email, password } = result.data;
+    const { name, email, password } = req.body;
     const { tokens, user } = await authService.register(
       name,
       email,
@@ -55,16 +46,7 @@ export async function register(req: Request, res: Response): Promise<void> {
 // ── POST /auth/login ─────────────────────────────────────────────────
 export async function login(req: Request, res: Response): Promise<void> {
   try {
-    const result = loginSchema.safeParse(req.body);
-    if (!result.success) {
-      res.status(400).json({
-        message: "Validation failed",
-        errors: result.error.flatten(),
-      });
-      return;
-    }
-
-    const { email, password } = result.data;
+    const { email, password } = req.body;
     const { tokens, user } = await authService.login(email, password);
 
     res.cookie("refreshToken", tokens.refreshToken, REFRESH_COOKIE_OPTIONS);
