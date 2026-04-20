@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from "../../shared/middleware/requireAuth";
 export const trackBatch = async (req: Request, res: Response) => {
   try {
     const { apiKey, visitorId, events } = req.body;
+    console.log(req.body);
     if (typeof apiKey !== "string" || apiKey.length > 100) {
       return res.status(400).send("Invalid apiKey");
     }
@@ -133,29 +134,22 @@ export const generateApiKey = async (req: Request, res: Response) => {
     return res.json({ success: true, apiKey: newApiKey });
   } catch (err: any) {
     if (err.message === "WORKSPACE_NOT_FOUND") {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Workspace not found or unauthorized",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Workspace not found or unauthorized",
+      });
     }
     if (err.message === "DOMAIN_ALREADY_IN_USE") {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          message: "This domain is already registered to another user",
-        });
+      return res.status(409).json({
+        success: false,
+        message: "This domain is already registered to another user",
+      });
     }
     if (err.message === "INVALID_DOMAIN_FORMAT") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            "Invalid domain format. Please enter a valid URL or hostname.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid domain format. Please enter a valid URL or hostname.",
+      });
     }
     console.error("Generate API key error:", err);
     return res
@@ -182,20 +176,16 @@ export const getTrackerDetails = async (req: Request, res: Response) => {
     return res.json({ success: true, ...details });
   } catch (err: any) {
     if (err.message === "API_KEY_NOT_FOUND") {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "API key not found. Please generate one.",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "API key not found. Please generate one.",
+      });
     }
     if (err.message === "WORKSPACE_NOT_FOUND") {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Workspace not found or unauthorized",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Workspace not found or unauthorized",
+      });
     }
     console.error("Get tracker details error:", err);
     return res
