@@ -6,7 +6,7 @@ export const trackBatchSchema = z.object({
   apiKey: z.string().min(1).max(100),
   visitorId: z.string().min(1).max(100),
   events: z.array(z.object({
-    type: z.string(),
+    type: z.string().optional(),
     url: z.string().optional(),
     path: z.string().optional(),
     title: z.string().optional(),

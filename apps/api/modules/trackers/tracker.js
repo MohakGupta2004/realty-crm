@@ -29,9 +29,14 @@ export default {
   let identified = false;
 
   function track(event, data = {}) {
+    const { url, path, title, referrer, ...rest } = Object.assign({ userAgent: navigator.userAgent }, data);
     queue.push({
-      event,
-      data: Object.assign({ userAgent: navigator.userAgent }, data),
+      type: event,
+      url: url || window.location.href,
+      path: path || window.location.pathname,
+      title: title || document.title,
+      referrer: referrer || document.referrer || undefined,
+      metadata: Object.keys(rest).length ? rest : undefined,
       timestamp: Date.now()
     });
   }
