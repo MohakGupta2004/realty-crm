@@ -5,7 +5,7 @@ import type { AuthenticatedRequest } from "../../shared/middleware/requireAuth";
 export const trackBatch = async (req: Request, res: Response) => {
   try {
     const { apiKey, visitorId, events } = req.body;
-
+    console.log(req.body);
     if (typeof apiKey !== "string" || apiKey.length > 100) {
       return res.status(400).send("Invalid apiKey");
     }
@@ -21,15 +21,21 @@ export const trackBatch = async (req: Request, res: Response) => {
     const origin = req.headers.origin || req.headers.referer || "";
     const userAgent = req.headers["user-agent"] || "";
 
-    await trackerService.processBatchEvents(apiKey, visitorId, events, origin, userAgent as string);
-    
+    await trackerService.processBatchEvents(
+      apiKey,
+      visitorId,
+      events,
+      origin,
+      userAgent as string,
+    );
+
     return res.sendStatus(200);
   } catch (err: any) {
     if (err.message === "INVALID_API_KEY") {
-        return res.status(403).send("Invalid API key");
+      return res.status(403).send("Invalid API key");
     }
     if (err.message === "INVALID_DOMAIN") {
-        return res.status(403).send("Invalid domain");
+      return res.status(403).send("Invalid domain");
     }
     console.error("Track batch error:", err);
     return res.sendStatus(500);
@@ -54,15 +60,23 @@ export const identifyVisitor = async (req: Request, res: Response) => {
 
     const origin = req.headers.origin || req.headers.referer || "";
 
-    const lead = await trackerService.identifyVisitor(apiKey, visitorId, email, name, origin, phone, city);
-    
+    const lead = await trackerService.identifyVisitor(
+      apiKey,
+      visitorId,
+      email,
+      name,
+      origin,
+      phone,
+      city,
+    );
+
     return res.json({ success: true, lead });
   } catch (err: any) {
     if (err.message === "INVALID_API_KEY") {
-        return res.status(403).send("Invalid API key");
+      return res.status(403).send("Invalid API key");
     }
     if (err.message === "INVALID_DOMAIN") {
-        return res.status(403).send("Invalid domain");
+      return res.status(403).send("Invalid domain");
     }
     console.error("Identify error:", err);
     return res.sendStatus(500);
@@ -79,7 +93,9 @@ export const getWorkspaceEvents = async (req: Request, res: Response) => {
     return res.json({ success: true, ...data });
   } catch (err: any) {
     console.error("Get workspace events error:", err);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -93,7 +109,9 @@ export const getWorkspaceVisitors = async (req: Request, res: Response) => {
     return res.json({ success: true, ...data });
   } catch (err: any) {
     console.error("Get workspace visitors error:", err);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -103,23 +121,40 @@ export const generateApiKey = async (req: Request, res: Response) => {
     const { workspaceId, domain } = req.body;
 
     if (!workspaceId) {
-      return res.status(400).json({ success: false, message: "workspaceId is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "workspaceId is required" });
     }
 
-    const newApiKey = await trackerService.generateApiKey(workspaceId, authUser.user.id, domain);
+    const newApiKey = await trackerService.generateApiKey(
+      workspaceId,
+      authUser.user.id,
+      domain,
+    );
     return res.json({ success: true, apiKey: newApiKey });
   } catch (err: any) {
     if (err.message === "WORKSPACE_NOT_FOUND") {
-      return res.status(404).json({ success: false, message: "Workspace not found or unauthorized" });
+      return res.status(404).json({
+        success: false,
+        message: "Workspace not found or unauthorized",
+      });
     }
     if (err.message === "DOMAIN_ALREADY_IN_USE") {
-      return res.status(409).json({ success: false, message: "This domain is already registered to another user" });
+      return res.status(409).json({
+        success: false,
+        message: "This domain is already registered to another user",
+      });
     }
     if (err.message === "INVALID_DOMAIN_FORMAT") {
-      return res.status(400).json({ success: false, message: "Invalid domain format. Please enter a valid URL or hostname." });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid domain format. Please enter a valid URL or hostname.",
+      });
     }
     console.error("Generate API key error:", err);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -129,20 +164,33 @@ export const getTrackerDetails = async (req: Request, res: Response) => {
     const workspaceId = req.params.workspaceId;
 
     if (!workspaceId) {
-      return res.status(400).json({ success: false, message: "workspaceId is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "workspaceId is required" });
     }
 
-    const details = await trackerService.getTrackerDetails(workspaceId as string, authUser.user.id);
+    const details = await trackerService.getTrackerDetails(
+      workspaceId as string,
+      authUser.user.id,
+    );
     return res.json({ success: true, ...details });
   } catch (err: any) {
     if (err.message === "API_KEY_NOT_FOUND") {
-      return res.status(404).json({ success: false, message: "API key not found. Please generate one." });
+      return res.status(404).json({
+        success: false,
+        message: "API key not found. Please generate one.",
+      });
     }
     if (err.message === "WORKSPACE_NOT_FOUND") {
-      return res.status(404).json({ success: false, message: "Workspace not found or unauthorized" });
+      return res.status(404).json({
+        success: false,
+        message: "Workspace not found or unauthorized",
+      });
     }
     console.error("Get tracker details error:", err);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -154,7 +202,9 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     return res.json({ success: true, ...stats });
   } catch (err: any) {
     console.error("Get dashboard stats error:", err);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -165,6 +215,8 @@ export const getLeadEngagement = async (req: Request, res: Response) => {
     return res.json({ success: true, leads });
   } catch (err: any) {
     console.error("Get lead engagement error:", err);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
