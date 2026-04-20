@@ -29,14 +29,14 @@ export default {
   let identified = false;
 
   function track(event, data = {}) {
-    const { url, path, title, referrer, ...rest } = Object.assign({ userAgent: navigator.userAgent }, data);
+    const merged = Object.assign({ userAgent: navigator.userAgent }, data);
+    merged.url = merged.url || window.location.href;
+    merged.path = merged.path || window.location.pathname;
+    merged.title = merged.title || document.title;
+    merged.referrer = merged.referrer || document.referrer || undefined;
     queue.push({
-      type: event,
-      url: url || window.location.href,
-      path: path || window.location.pathname,
-      title: title || document.title,
-      referrer: referrer || document.referrer || undefined,
-      metadata: Object.keys(rest).length ? rest : undefined,
+      event: event,
+      data: merged,
       timestamp: Date.now()
     });
   }
