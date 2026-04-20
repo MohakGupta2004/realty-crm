@@ -22,6 +22,7 @@ export const validate = (schema: ValidationSchema) => {
       return next();
     } catch (error) {
       if (error instanceof ZodError) {
+        console.error("Validation failed:", req.method, req.path, JSON.stringify(error.flatten()));
         return res.status(400).json({
           message: "Validation failed",
           errors: error.flatten(),

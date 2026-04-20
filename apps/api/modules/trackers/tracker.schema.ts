@@ -12,7 +12,7 @@ export const trackBatchSchema = z.object({
     title: z.string().optional(),
     referrer: z.string().optional(),
     metadata: z.any().optional(),
-    timestamp: z.number().optional(),
+    timestamp: z.coerce.number().optional(),
   })).min(1).max(50),
 });
 
