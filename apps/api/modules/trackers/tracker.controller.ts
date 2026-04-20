@@ -3,6 +3,7 @@ import { trackerService } from "./tracker.service";
 import type { AuthenticatedRequest } from "../../shared/middleware/requireAuth";
 
 export const trackBatch = async (req: Request, res: Response) => {
+  console.log("goru", req.body);
   try {
     const { apiKey, visitorId, events } = req.body;
     console.log(req.body);
@@ -10,12 +11,13 @@ export const trackBatch = async (req: Request, res: Response) => {
       return res.status(400).send("Invalid apiKey");
     }
 
-    if (typeof visitorId !== "string" || visitorId.length > 100) {
+    if (typeof visitorId !== "string") {
       return res.status(400).send("Invalid visitorId");
     }
 
     if (!Array.isArray(events) || events.length === 0 || events.length > 50) {
-      return res.status(400).send("Invalid events payload");
+	console.log("Invalid events payload gud");      
+return res.status(400).send("Invalid events payload");
     }
 
     const origin = req.headers.origin || req.headers.referer || "";
