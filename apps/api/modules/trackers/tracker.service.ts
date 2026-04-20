@@ -12,10 +12,7 @@ export class TrackerService {
     if (!domain) return false;
     try {
       const hostname = new URL(origin).hostname;
-      return (
-        hostname === domain ||
-        hostname.endsWith("." + domain)
-      );
+      return hostname === domain || hostname.endsWith("." + domain);
     } catch {
       return false;
     }
@@ -26,10 +23,12 @@ export class TrackerService {
     visitorId: string,
     events: any[],
     origin: string,
-    userAgent?: string
+    userAgent?: string,
   ) {
     // 1. Validate apiKey and get realtor/workspace
-    const keyDoc = await ApiKey.findOne({ key: apiKey }).select("workspace user domain");
+    const keyDoc = await ApiKey.findOne({ key: apiKey }).select(
+      "workspace user domain",
+    );
     if (!keyDoc) {
       throw new Error("INVALID_API_KEY");
     }
@@ -42,34 +41,42 @@ export class TrackerService {
     // 3. Ensure visitor exists
     const visitor = await Visitor.findOneAndUpdate(
       { visitorId, workspaceId: keyDoc.workspace as any },
-      { 
+      {
         $set: { realtorId: keyDoc.user },
-        $setOnInsert: { workspaceId: keyDoc.workspace } 
+        $setOnInsert: { workspaceId: keyDoc.workspace },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     ).select("leadId");
 
     // 4. Prepare events
-    const allowedEvents = ["page_view", "click", "form_submit", "identify"];
-    const formattedEvents = events.map((e: any) => {
-      if (!allowedEvents.includes(e.event)) {
-        console.warn("Invalid event:", e.event);
-        return null;
-      }
+    const allowedEvents = [
+      "page_view",
+      "click",
+      "form_submit",
+      "identify",
+      "listing_view",
+    ];
+    const formattedEvents = events
+      .map((e: any) => {
+        if (!allowedEvents.includes(e.event)) {
+          console.warn("Invalid event:", e.event);
+          return null;
+        }
 
-      const data = typeof e.data === "object" ? { ...e.data } : {};
-      if (userAgent) data.userAgent = userAgent;
+        const data = typeof e.data === "object" ? { ...e.data } : {};
+        if (userAgent) data.userAgent = userAgent;
 
-      return {
-        workspaceId: keyDoc.workspace,
-        realtorId: keyDoc.user,
-        visitorId: visitorId,
-        leadId: (visitor as any).leadId || null,
-        event: e.event,
-        data,
-        timestamp: e.timestamp || Date.now(),
-      };
-    }).filter(Boolean);
+        return {
+          workspaceId: keyDoc.workspace,
+          realtorId: keyDoc.user,
+          visitorId: visitorId,
+          leadId: (visitor as any).leadId || null,
+          event: e.event,
+          data,
+          timestamp: e.timestamp || Date.now(),
+        };
+      })
+      .filter(Boolean);
 
     // 5. Store events
     if (formattedEvents.length > 0) {
@@ -89,7 +96,7 @@ export class TrackerService {
                 data.name,
                 origin,
                 data.phone,
-                data.city
+                data.city,
               );
             } catch (err) {
               console.error("Auto identify from batch failed", err);
@@ -103,7 +110,7 @@ export class TrackerService {
           workspace: keyDoc.workspace,
           realtor: keyDoc.user,
           visitorId,
-          eventsCount: formattedEvents.length
+          eventsCount: formattedEvents.length,
         });
       }
     }
@@ -116,12 +123,14 @@ export class TrackerService {
     name: string | undefined,
     origin: string,
     phone?: string,
-    city?: string
+    city?: string,
   ) {
     const normalizedEmail = email.toLowerCase().trim();
 
     // 1. Validate apiKey
-    const keyDoc = await ApiKey.findOne({ key: apiKey }).select("workspace user domain");
+    const keyDoc = await ApiKey.findOne({ key: apiKey }).select(
+      "workspace user domain",
+    );
     if (!keyDoc) {
       throw new Error("INVALID_API_KEY");
     }
@@ -132,8 +141,11 @@ export class TrackerService {
     }
 
     // 2. Find if lead exists to handle required fields for new leads
-    const existingLead = await Lead.findOne({ email: normalizedEmail, workspaceId: keyDoc.workspace as any });
-    
+    const existingLead = await Lead.findOne({
+      email: normalizedEmail,
+      workspaceId: keyDoc.workspace as any,
+    });
+
     // 3. Build $set fields — only include non-empty values
     const setFields: Record<string, any> = {
       realtorId: keyDoc.user,
@@ -145,14 +157,14 @@ export class TrackerService {
     // 4. Handle required fields for NEW leads
     const onInsertFields: Record<string, any> = {
       workspaceId: keyDoc.workspace,
-      source: "tracker"
+      source: "tracker",
     };
 
     if (!existingLead) {
       // Get default pipeline/stage for new leads
       const defaults = await ensureDefaultPipelines(
         keyDoc.workspace.toString(),
-        keyDoc.user.toString()
+        keyDoc.user.toString(),
       );
       onInsertFields.pipelineId = defaults.buyer.pipelineId;
       onInsertFields.stageId = defaults.buyer.firstStageId;
@@ -169,36 +181,46 @@ export class TrackerService {
       { email: normalizedEmail, workspaceId: keyDoc.workspace as any },
       {
         $set: setFields,
-        $setOnInsert: onInsertFields
+        $setOnInsert: onInsertFields,
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     // 3. Link visitor → lead
-    const oldVisitor = await Visitor.findOne({ visitorId, workspaceId: keyDoc.workspace as any });
-    
+    const oldVisitor = await Visitor.findOne({
+      visitorId,
+      workspaceId: keyDoc.workspace as any,
+    });
+
     await Visitor.findOneAndUpdate(
       { visitorId, workspaceId: keyDoc.workspace as any },
-      { 
-        leadId: lead._id, 
+      {
+        leadId: lead._id,
         workspaceId: keyDoc.workspace,
-        realtorId: keyDoc.user 
+        realtorId: keyDoc.user,
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     // 4. Update ALL past events
-    if (!oldVisitor || oldVisitor.leadId?.toString() !== (lead._id as any).toString()) {
+    if (
+      !oldVisitor ||
+      oldVisitor.leadId?.toString() !== (lead._id as any).toString()
+    ) {
       await Event.updateMany(
         { visitorId, workspaceId: keyDoc.workspace as any },
-        { leadId: lead._id, realtorId: keyDoc.user }
+        { leadId: lead._id, realtorId: keyDoc.user },
       );
     }
 
     return lead;
   }
 
-  public async getEvents(workspaceId: string, page: number = 1, limit: number = 50) {
+  public async getEvents(
+    workspaceId: string,
+    page: number = 1,
+    limit: number = 50,
+  ) {
     const skip = (page - 1) * limit;
 
     const [events, total] = await Promise.all([
@@ -206,8 +228,8 @@ export class TrackerService {
         .sort({ timestamp: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('leadId', 'name email'),
-      Event.countDocuments({ workspaceId })
+        .populate("leadId", "name email"),
+      Event.countDocuments({ workspaceId }),
     ]);
 
     return {
@@ -216,12 +238,16 @@ export class TrackerService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
-  public async getVisitors(workspaceId: string, page: number = 1, limit: number = 50) {
+  public async getVisitors(
+    workspaceId: string,
+    page: number = 1,
+    limit: number = 50,
+  ) {
     const skip = (page - 1) * limit;
 
     const [visitors, total] = await Promise.all([
@@ -229,8 +255,8 @@ export class TrackerService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('leadId', 'name email'),
-      Visitor.countDocuments({ workspaceId })
+        .populate("leadId", "name email"),
+      Visitor.countDocuments({ workspaceId }),
     ]);
 
     return {
@@ -239,8 +265,8 @@ export class TrackerService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
   private normalizeDomain(input: string | undefined): string | null {
@@ -261,7 +287,11 @@ export class TrackerService {
     }
   }
 
-  public async generateApiKey(workspaceId: string, userId: string, domain?: string) {
+  public async generateApiKey(
+    workspaceId: string,
+    userId: string,
+    domain?: string,
+  ) {
     const workspace = await Workspace.findById(workspaceId).select("_id");
     if (!workspace) {
       throw new Error("WORKSPACE_NOT_FOUND");
@@ -280,71 +310,85 @@ export class TrackerService {
       }
 
       // 2. It must be globally unique
-      const existingDomainKey = await ApiKey.findOne({ 
+      const existingDomainKey = await ApiKey.findOne({
         domain: normalizedProvided,
-        user: { $ne: userId as any } 
+        user: { $ne: userId as any },
       });
-      
+
       if (existingDomainKey) {
         throw new Error("DOMAIN_ALREADY_IN_USE");
       }
-      
+
       // 3. Automatically update the user's profile website
-      await User.findByIdAndUpdate(userId, { $set: { website: normalizedProvided } });
-      
+      await User.findByIdAndUpdate(userId, {
+        $set: { website: normalizedProvided },
+      });
+
       // Use the normalized domain for storage
       domain = normalizedProvided;
-    } 
+    }
 
     const newApiKey = crypto.randomUUID();
-    
+
     await ApiKey.findOneAndUpdate(
       { user: userId as any, workspace: workspaceId as any },
-      { 
-        $set: { 
+      {
+        $set: {
           key: newApiKey,
-          domain: domain 
-        } 
+          domain: domain,
+        },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     return newApiKey;
   }
 
   public async getTrackerDetails(workspaceId: string, userId: string) {
-    const keyDoc = await ApiKey.findOne({ user: userId, workspace: workspaceId }).select("key domain");
-    
-    const scriptUrl = process.env.STATIC_SCRIPT_URL || "http://localhost:3000/tracker.js";
-    
+    const keyDoc = await ApiKey.findOne({
+      user: userId,
+      workspace: workspaceId,
+    }).select("key domain");
+
+    const scriptUrl =
+      process.env.STATIC_SCRIPT_URL || "http://localhost:3000/tracker.js";
+
     if (!keyDoc) {
       return {
         apiKey: null,
         trackerScript: null,
         scriptUrl,
-        domain: null
+        domain: null,
       };
     }
-    const trackerScript = keyDoc.domain ? `
-<script 
+    const trackerScript = keyDoc.domain
+      ? `
+<script
   src="${scriptUrl}"
   data-key="${keyDoc.key}"
   defer>
 </script>
-    `.trim() : null;
+    `.trim()
+      : null;
 
     return {
       apiKey: keyDoc.key,
       trackerScript,
       scriptUrl,
-      domain: keyDoc.domain
+      domain: keyDoc.domain,
     };
   }
   private parseDevice(ua: string): "Desktop" | "Mobile" | "Tablet" {
     if (!ua) return "Desktop";
     const lower = ua.toLowerCase();
-    if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/i.test(lower)) return "Tablet";
-    if (/mobile|iphone|ipod|android.*mobile|blackberry|opera mini|iemobile/i.test(lower)) return "Mobile";
+    if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/i.test(lower))
+      return "Tablet";
+    if (
+      /mobile|iphone|ipod|android.*mobile|blackberry|opera mini|iemobile/i.test(
+        lower,
+      )
+    )
+      return "Mobile";
     return "Desktop";
   }
 
@@ -356,7 +400,7 @@ export class TrackerService {
       avgPagesResult,
       heatScoreResult,
       clickHotspotsRaw,
-      deviceEventsRaw
+      deviceEventsRaw,
     ] = await Promise.all([
       // 1. Total sessions (total events = total engagement)
       Event.countDocuments({ workspaceId }),
@@ -366,23 +410,38 @@ export class TrackerService {
 
       // 3. Avg pages per session (page_view count per unique visitorId)
       Event.aggregate([
-        { $match: { workspaceId: new (mongoose.Types.ObjectId as any)(workspaceId), event: "page_view" } },
+        {
+          $match: {
+            workspaceId: new (mongoose.Types.ObjectId as any)(workspaceId),
+            event: "page_view",
+          },
+        },
         { $group: { _id: "$visitorId", pageCount: { $sum: 1 } } },
-        { $group: { _id: null, avgPages: { $avg: "$pageCount" }, totalVisitors: { $sum: 1 } } }
+        {
+          $group: {
+            _id: null,
+            avgPages: { $avg: "$pageCount" },
+            totalVisitors: { $sum: 1 },
+          },
+        },
       ]),
 
       // 4. Engagement heat score — bucket visitors by total event count
       Event.aggregate([
-        { $match: { workspaceId: new (mongoose.Types.ObjectId as any)(workspaceId) } },
+        {
+          $match: {
+            workspaceId: new (mongoose.Types.ObjectId as any)(workspaceId),
+          },
+        },
         { $group: { _id: "$visitorId", count: { $sum: 1 } } },
         {
           $bucket: {
             groupBy: "$count",
             boundaries: [1, 2, 5, 11],
             default: "hot",
-            output: { count: { $sum: 1 } }
-          }
-        }
+            output: { count: { $sum: 1 } },
+          },
+        },
       ]),
 
       // 5. Top interactions — all events grouped by type and key data
@@ -390,7 +449,7 @@ export class TrackerService {
         {
           $match: {
             workspaceId: new (mongoose.Types.ObjectId as any)(workspaceId),
-          }
+          },
         },
         {
           $project: {
@@ -401,29 +460,45 @@ export class TrackerService {
               $switch: {
                 branches: [
                   { case: { $eq: ["$event", "page_view"] }, then: "$data.url" },
-                  { case: { $eq: ["$event", "click"] }, then: { $ifNull: ["$data.text", { $ifNull: ["$data.button_text", { $ifNull: ["$data.location", "Unknown click"] }] }] } },
-                  { case: { $eq: ["$event", "form_submit"] }, then: { $ifNull: ["$data.formId", "Unknown form"] } },
+                  {
+                    case: { $eq: ["$event", "click"] },
+                    then: {
+                      $ifNull: [
+                        "$data.text",
+                        {
+                          $ifNull: [
+                            "$data.button_text",
+                            { $ifNull: ["$data.location", "Unknown click"] },
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                  {
+                    case: { $eq: ["$event", "form_submit"] },
+                    then: { $ifNull: ["$data.formId", "Unknown form"] },
+                  },
                 ],
-                default: "other"
-              }
-            }
-          }
+                default: "other",
+              },
+            },
+          },
         },
         {
           $addFields: {
-            _key: { $toLower: "$_rawKey" }
-          }
+            _key: { $toLower: "$_rawKey" },
+          },
         },
         {
           $group: {
             _id: { event: "$event", key: "$_key" },
             count: { $sum: 1 },
             lastSeen: { $max: "$timestamp" },
-            sampleData: { $first: "$data" }
-          }
+            sampleData: { $first: "$data" },
+          },
         },
         { $sort: { count: -1 } },
-        { $limit: 15 }
+        { $limit: 15 },
       ]),
 
       // 6. Device breakdown — from all events with userAgent
@@ -431,20 +506,31 @@ export class TrackerService {
         {
           $match: {
             workspaceId: new (mongoose.Types.ObjectId as any)(workspaceId),
-            "data.userAgent": { $exists: true, $ne: null }
-          }
+            "data.userAgent": { $exists: true, $ne: null },
+          },
         },
-        { $group: { _id: "$visitorId", userAgent: { $first: "$data.userAgent" } } }
-      ])
+        {
+          $group: {
+            _id: "$visitorId",
+            userAgent: { $first: "$data.userAgent" },
+          },
+        },
+      ]),
     ]);
 
     // Process avg pages
-    const avgPagesPerSession = avgPagesResult.length > 0
-      ? Math.round(avgPagesResult[0].avgPages * 10) / 10
-      : 0;
+    const avgPagesPerSession =
+      avgPagesResult.length > 0
+        ? Math.round(avgPagesResult[0].avgPages * 10) / 10
+        : 0;
 
     // Process heat score buckets
-    const heatMap: { new: number; cool: number; warm: number; hot: number } = { new: 0, cool: 0, warm: 0, hot: 0 };
+    const heatMap: { new: number; cool: number; warm: number; hot: number } = {
+      new: 0,
+      cool: 0,
+      warm: 0,
+      hot: 0,
+    };
     for (const bucket of heatScoreResult) {
       if (bucket._id === 1) heatMap.new = bucket.count;
       else if (bucket._id === 2) heatMap.cool = bucket.count;
@@ -497,7 +583,10 @@ export class TrackerService {
       return {
         label,
         eventType,
-        tagName: eventType === "click" ? (item.sampleData?.tagName || "ELEMENT") : eventType.toUpperCase(),
+        tagName:
+          eventType === "click"
+            ? item.sampleData?.tagName || "ELEMENT"
+            : eventType.toUpperCase(),
         href,
         count: item.count,
       };
@@ -527,12 +616,17 @@ export class TrackerService {
     }));
 
     // Process device breakdown
-    const deviceCounts: { Desktop: number; Mobile: number; Tablet: number } = { Desktop: 0, Mobile: 0, Tablet: 0 };
+    const deviceCounts: { Desktop: number; Mobile: number; Tablet: number } = {
+      Desktop: 0,
+      Mobile: 0,
+      Tablet: 0,
+    };
     for (const ev of deviceEventsRaw) {
       const device = this.parseDevice(ev.userAgent || "");
       deviceCounts[device]++;
     }
-    const deviceTotal = Object.values(deviceCounts).reduce((a, b) => a + b, 0) || 1;
+    const deviceTotal =
+      Object.values(deviceCounts).reduce((a, b) => a + b, 0) || 1;
     const deviceBreakdown = {
       desktop: Math.round((deviceCounts.Desktop / deviceTotal) * 100),
       mobile: Math.round((deviceCounts.Mobile / deviceTotal) * 100),
@@ -612,7 +706,7 @@ export class TrackerService {
         ...new Set(
           (r.buttonTextsRaw as (string | null)[])
             .filter((t): t is string => typeof t === "string" && t.length > 0)
-            .map((t) => t.slice(0, 40))
+            .map((t) => t.slice(0, 40)),
         ),
       ].slice(0, 5);
 

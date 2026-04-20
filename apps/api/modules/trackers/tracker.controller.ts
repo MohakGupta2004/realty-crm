@@ -6,7 +6,7 @@ export const trackBatch = async (req: Request, res: Response) => {
   console.log("goru", req.body);
   try {
     const { apiKey, visitorId, events } = req.body;
-    console.log(req.body);
+    console.log(req.body.events);
     if (typeof apiKey !== "string" || apiKey.length > 100) {
       return res.status(400).send("Invalid apiKey");
     }
@@ -16,8 +16,8 @@ export const trackBatch = async (req: Request, res: Response) => {
     }
 
     if (!Array.isArray(events) || events.length === 0 || events.length > 50) {
-	console.log("Invalid events payload gud");      
-return res.status(400).send("Invalid events payload");
+      console.log("Invalid events payload gud");
+      return res.status(400).send("Invalid events payload");
     }
 
     const origin = req.headers.origin || req.headers.referer || "";
@@ -33,7 +33,7 @@ return res.status(400).send("Invalid events payload");
 
     return res.sendStatus(200);
   } catch (err: any) {
-    if (err.message === "INVALID_API_KEY") {
+    if (err.message === "INVALeID_API_KEY") {
       return res.status(403).send("Invalid API key");
     }
     if (err.message === "INVALID_DOMAIN") {
