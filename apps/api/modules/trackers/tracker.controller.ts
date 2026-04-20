@@ -5,7 +5,7 @@ import type { AuthenticatedRequest } from "../../shared/middleware/requireAuth";
 export const trackBatch = async (req: Request, res: Response) => {
   try {
     const { apiKey, visitorId, events } = req.body;
-
+    console.log(req.body)
     if (typeof apiKey !== "string" || apiKey.length > 100) {
       return res.status(400).send("Invalid apiKey");
     }
@@ -22,14 +22,14 @@ export const trackBatch = async (req: Request, res: Response) => {
     const userAgent = req.headers["user-agent"] || "";
 
     await trackerService.processBatchEvents(apiKey, visitorId, events, origin, userAgent as string);
-    
+
     return res.sendStatus(200);
   } catch (err: any) {
     if (err.message === "INVALID_API_KEY") {
-        return res.status(403).send("Invalid API key");
+      return res.status(403).send("Invalid API key");
     }
     if (err.message === "INVALID_DOMAIN") {
-        return res.status(403).send("Invalid domain");
+      return res.status(403).send("Invalid domain");
     }
     console.error("Track batch error:", err);
     return res.sendStatus(500);
@@ -55,14 +55,14 @@ export const identifyVisitor = async (req: Request, res: Response) => {
     const origin = req.headers.origin || req.headers.referer || "";
 
     const lead = await trackerService.identifyVisitor(apiKey, visitorId, email, name, origin, phone, city);
-    
+
     return res.json({ success: true, lead });
   } catch (err: any) {
     if (err.message === "INVALID_API_KEY") {
-        return res.status(403).send("Invalid API key");
+      return res.status(403).send("Invalid API key");
     }
     if (err.message === "INVALID_DOMAIN") {
-        return res.status(403).send("Invalid domain");
+      return res.status(403).send("Invalid domain");
     }
     console.error("Identify error:", err);
     return res.sendStatus(500);
