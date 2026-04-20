@@ -4,24 +4,20 @@ import requireRole from "../../shared/middleware/requireRole";
 import { getMe, getProMe, getAllUsers, updateOnboarding, updateMe, deleteMe } from "./user.controller";
 import { requireProUser } from "./user.middleware";
 
+import { validate } from "../../shared/middleware/validate";
+import { updateUserSchema } from "./user.schema";
+
 const router = Router();
 
-// GET /user/me — current user profile
 router.get("/me", requireAuth, getMe);
+router.put("/me", requireAuth, validate({ body: updateUserSchema }), updateMe);
+router.patch("/me", requireAuth, validate({ body: updateUserSchema }), updateMe);
+router.put("/onboarding", requireAuth, validate({ body: updateUserSchema }), updateOnboarding);
 
 // GET /user/me/pro — current pro user profile
 router.get("/me/pro", requireAuth, requireProUser, getProMe);
 
-// PUT /user/me — update current user profile
-router.put("/me", requireAuth, updateMe);
-
 // DELETE /user/me — delete current user account
 router.delete("/me", requireAuth, deleteMe);
-
-// GET /user/admin/users — admin-only: list all users
-router.get("/admin/users", requireAuth, requireRole("ADMIN"), getAllUsers);
-
-// PUT /user/onboarding — update onboarding data
-router.put("/onboarding", requireAuth, updateOnboarding);
 
 export default router;
