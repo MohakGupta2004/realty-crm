@@ -46,9 +46,11 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [initialUserData, setInitialUserData] = useState<any>(null);
   const [marketSearchText, setMarketSearchText] = useState("");
+  const portalOpenedRef = useRef(false);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -178,6 +180,77 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
       setSaving(false);
     }
   };
+
+  const PLAN_LABELS: Record<string, string> = {
+    free: "Free",
+    "Core CRM": "Core CRM",
+    "Core CRM + IDX": "Core CRM + IDX",
+    "Advanced AI CRM": "Advanced AI CRM",
+  };
+  const planLabel =
+    PLAN_LABELS[formData.subscriptionPlan] ||
+    (formData.subscriptionPlan ? formData.subscriptionPlan : "Free");
+  const isPaidPlan =
+    !!formData.subscriptionPlan &&
+    formData.subscriptionPlan.toLowerCase() !== "free";
+
+  const handleUpgrade = async () => {
+    if (upgrading) return;
+    setUpgrading(true);
+    try {
+      if (!isPaidPlan) {
+        router.push("/");
+        return;
+      }
+      const res = await api("/payment/createPortalSession", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg =
+          data?.error || data?.message || `Portal session failed (${res.status})`;
+        console.error("Portal session error:", msg, data);
+        if (res.status === 403 || res.status === 400) {
+          router.push("/");
+        }
+        return;
+      }
+      if (data?.url) {
+        portalOpenedRef.current = true;
+        window.open(data.url, "_blank", "noopener,noreferrer");
+      }
+    } catch (err) {
+      console.error("Portal session error:", err);
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
+  useEffect(() => {
+    const verifySubscription = async () => {
+      if (!portalOpenedRef.current) return;
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await api("/user/me");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.user && data.user.isSubscribed === false) {
+          portalOpenedRef.current = false;
+          clearToken();
+          router.replace("/");
+        }
+      } catch (err) {
+        console.error("Subscription re-check error:", err);
+      }
+    };
+    document.addEventListener("visibilitychange", verifySubscription);
+    window.addEventListener("focus", verifySubscription);
+    return () => {
+      document.removeEventListener("visibilitychange", verifySubscription);
+      window.removeEventListener("focus", verifySubscription);
+    };
+  }, [router]);
 
   const handleDeleteAccount = async () => {
     if (
@@ -657,19 +730,30 @@ export default function SettingsView({ workspace, onClose, onUpdate }: SettingsV
                 </div>
                 <div>
                   <h4 className="text-sm font-bold uppercase tracking-tight">
-                    {formData.subscriptionPlan} Tier
+                    {planLabel} Tier
                   </h4>
                   <p className="text-[10px] text-muted-foreground/40 font-medium">
-                    Billed annually • Next cycle in 243 days
+                    {isPaidPlan
+                      ? "Manage billing, payment methods & invoices"
+                      : "Upgrade to unlock paid features"}
                   </p>
                 </div>
               </div>
               <Button
                 variant="outline"
                 size="sm"
+                onClick={handleUpgrade}
+                disabled={upgrading}
                 className="h-8 text-[10px] font-black uppercase tracking-widest bg-transparent border-border/20 hover:bg-foreground/5 group-hover:border-foreground/20 transition-all"
               >
-                Upgrade <ChevronRight className="h-3 w-3 ml-1" />
+                {upgrading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <>
+                    {isPaidPlan ? "Manage" : "Upgrade"}{" "}
+                    <ChevronRight className="h-3 w-3 ml-1" />
+                  </>
+                )}
               </Button>
             </div>
           </section>

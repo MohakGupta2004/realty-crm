@@ -89,6 +89,28 @@ function DashboardContent() {
         return;
       }
 
+      try {
+        const userRes = await api("/user/me");
+        if (!userRes.ok) {
+          clearToken();
+          router.replace("/");
+          setLoading(false);
+          return;
+        }
+        const userData = await userRes.json();
+        if (userData?.user && userData.user.isSubscribed === false) {
+          clearToken();
+          router.replace("/");
+          setLoading(false);
+          return;
+        }
+      } catch {
+        clearToken();
+        router.replace("/");
+        setLoading(false);
+        return;
+      }
+
       await refreshWorkspaces();
     }
 

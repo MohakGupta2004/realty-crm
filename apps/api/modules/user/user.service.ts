@@ -3,7 +3,7 @@ import type { IUser, UserResponse } from "./user.types";
 
 class UserService {
     async findById(id: string): Promise<IUser | null> {
-        return User.findById(id);
+        return User.findById(id).populate("subscriptionId");
     }
 
     async findByEmail(email: string): Promise<IUser | null> {
@@ -61,6 +61,11 @@ class UserService {
     }
 
     toResponse(user: IUser): UserResponse {
+        const sub: any = (user as any).subscriptionId;
+        const planName =
+            sub && typeof sub === "object" && sub.planName
+                ? sub.planName
+                : "free";
         return {
             id: (user as any)._id.toString(),
             name: user.name,
@@ -81,7 +86,7 @@ class UserService {
             brandLogoUrl: user.brandLogoUrl,
             brokerageLogoUrl: user.brokerageLogoUrl,
             brokerageName: user.brokerageName,
-            subscriptionPlan: user.subscriptionPlan,
+            subscriptionPlan: planName,
             isSubscribed: user.isSubscribed,
             stripeCustomerId: user.stripeCustomerId,
             website: user.website,
