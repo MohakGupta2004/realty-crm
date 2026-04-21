@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Users,
@@ -49,7 +50,7 @@ interface Pipeline {
   type: string;
 }
 
-interface Lead {
+export interface Lead {
   _id: string;
   name: string;
   email: string;
@@ -68,6 +69,7 @@ interface Lead {
     name: string;
     email: string;
   };
+  extra_fields?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }
@@ -176,7 +178,7 @@ const COUNTRY_CODES = [
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────
-function timeAgo(dateStr: string) {
+export function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const secs = Math.floor(diff / 1000);
   if (secs < 60) return "just now";
@@ -1441,6 +1443,7 @@ function DetailPanel({
   userRole?: string;
   currentUserId?: string;
 }) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<
     "home" | "timeline" | "tasks" | "notes" | "emails"
   >("home");
@@ -1519,7 +1522,11 @@ function DetailPanel({
 
       {/* Panel footer */}
       <div className="flex items-center justify-end gap-2 border-t border-white/[0.06] px-4 py-2.5">
-        <Button size="sm" className="h-7 gap-1.5 rounded-md px-4 text-xs">
+        <Button
+          size="sm"
+          className="h-7 gap-1.5 rounded-md px-4 text-xs"
+          onClick={() => router.push(`/dashboard/leads/${lead._id}`)}
+        >
           Open
         </Button>
       </div>
@@ -2001,7 +2008,7 @@ function CsvUploadModal({
   );
 }
 // ── Notes tab content ─────────────────────────────────────────────────
-function NotesTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
+export function NotesTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newNoteBody, setNewNoteBody] = useState("");
@@ -2154,7 +2161,7 @@ function NotesTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
 }
 
 // ── Tasks Tab ─────────────────────────────────────────────────────────
-function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
+export function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
   const [tasks, setTasks] = useState<any[]>([]);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -2354,7 +2361,7 @@ function TasksTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
 }
 
 // ── Emails Tab ────────────────────────────────────────────────────────
-function EmailsTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
+export function EmailsTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
   const [communications, setCommunications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingIntegration, setLoadingIntegration] = useState(true);
@@ -2549,7 +2556,7 @@ function EmailsTab({ lead, workspaceId }: { lead: Lead; workspaceId: string }) {
 }
 
 // ── Email Draft Form ──────────────────────────────────────────────────
-function EmailDraftForm({
+export function EmailDraftForm({
   lead,
   onCancel,
   onSent,
@@ -2675,7 +2682,7 @@ function EmailDraftForm({
 }
 
 // ── Timeline Tab ──────────────────────────────────────────────────────
-function TimelineTab({
+export function TimelineTab({
   lead,
   workspaceId,
 }: {

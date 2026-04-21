@@ -76,8 +76,8 @@ export async function updateLead(req: Request, res: Response) {
         const authReq = req as AuthenticatedRequest;
         const leadId = req.params.id as string;
         const realtorId = authReq.user.id;
-        const { name, email, phone, source, city, pipelineId, stageId, status } = req.body;
-        const lead = await LeadService.updateLead(realtorId, leadId, { name, email, phone, source, city, pipelineId, stageId, status });
+        const { name, email, phone, source, city, pipelineId, stageId, status, extra_fields } = req.body;
+        const lead = await LeadService.updateLead(realtorId, leadId, { name, email, phone, source, city, pipelineId, stageId, status, extra_fields });
         if (!lead) {
             res.status(404).json({ message: "Lead not found" });
             return;

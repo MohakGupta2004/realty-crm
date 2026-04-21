@@ -53,6 +53,10 @@ const leadSchema = new mongoose.Schema<ILead>({
     },
     unsubscribedAt: {
         type: Date
+    },
+    extra_fields: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
     }
 }, {
     timestamps: true,

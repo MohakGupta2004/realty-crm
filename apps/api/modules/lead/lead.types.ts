@@ -14,6 +14,7 @@ export interface ILead {
     campaignId?: Types.ObjectId;
     isUnsubscribed?: boolean;
     unsubscribedAt?: Date;
+    extra_fields?: Record<string, string>;
 }
 
 export interface ILeadCreate {
@@ -48,4 +49,5 @@ export interface ILeadUpdate {
     pipelineId?: Types.ObjectId | string;
     stageId?: Types.ObjectId | string;
     status?: string;
+    extra_fields?: Record<string, string>;
 }
