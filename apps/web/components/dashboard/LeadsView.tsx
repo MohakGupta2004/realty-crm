@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Plus,
   Users,
@@ -24,6 +24,8 @@ import {
   Circle,
   UserPlus,
   RefreshCw,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -224,6 +226,13 @@ export default function LeadsView({
   } | null>(null);
   const [editValue, setEditValue] = useState("");
 
+  // search + filters (client-side)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [cityFilter, setCityFilter] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
+
   // new-lead form
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -294,6 +303,66 @@ export default function LeadsView({
       if (updated) setSelectedLead(updated);
     }
   }, [leads]);
+
+  const uniqueStatuses = useMemo(
+    () =>
+      Array.from(
+        new Set(leads.map((l) => l.status).filter((v): v is string => !!v)),
+      ).sort(),
+    [leads],
+  );
+  const uniqueSources = useMemo(
+    () =>
+      Array.from(
+        new Set(leads.map((l) => l.source).filter((v): v is string => !!v)),
+      ).sort(),
+    [leads],
+  );
+  const uniqueCities = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          leads.map((l) => l.city).filter((v): v is string => !!v && !!v.trim()),
+        ),
+      ).sort(),
+    [leads],
+  );
+
+  const filteredLeads = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return leads.filter((lead) => {
+      if (statusFilter !== "all" && lead.status !== statusFilter) return false;
+      if (sourceFilter !== "all" && lead.source !== sourceFilter) return false;
+      if (cityFilter !== "all" && (lead.city || "") !== cityFilter) return false;
+      if (!q) return true;
+      const haystack = [
+        lead.name,
+        lead.email,
+        lead.phone,
+        lead.city,
+        lead.source,
+        lead.status,
+        lead.realtorId?.name,
+        lead.realtorId?.email,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [leads, searchQuery, statusFilter, sourceFilter, cityFilter]);
+
+  const activeFilterCount =
+    (statusFilter !== "all" ? 1 : 0) +
+    (sourceFilter !== "all" ? 1 : 0) +
+    (cityFilter !== "all" ? 1 : 0);
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setSourceFilter("all");
+    setCityFilter("all");
+  };
 
   // ── Create lead ───────────────────────────────────────────────────
   async function handleCreate() {
@@ -397,10 +466,18 @@ export default function LeadsView({
 
   // ── Selection & Bulk Ops ──────────────────────────────────────────
   function toggleAll() {
-    if (selectedLeadIds.size === leads.length) {
-      setSelectedLeadIds(new Set());
+    const visibleIds = filteredLeads.map((l) => l._id);
+    const allVisibleSelected =
+      visibleIds.length > 0 &&
+      visibleIds.every((id) => selectedLeadIds.has(id));
+    if (allVisibleSelected) {
+      const next = new Set(selectedLeadIds);
+      visibleIds.forEach((id) => next.delete(id));
+      setSelectedLeadIds(next);
     } else {
-      setSelectedLeadIds(new Set(leads.map((l) => l._id)));
+      const next = new Set(selectedLeadIds);
+      visibleIds.forEach((id) => next.add(id));
+      setSelectedLeadIds(next);
     }
   }
 
@@ -485,11 +562,84 @@ export default function LeadsView({
           </div>
         </div>
 
-        {/* Sub-header: count */}
-        <div className="flex items-center gap-2 border-b border-white/[0.06] px-5 py-1.5">
-          <span className="text-xs text-muted-foreground">
-            All Leads · {leads.length}
-          </span>
+        {/* Sub-header: count + search + filters */}
+        <div className="flex flex-col gap-2 border-b border-white/[0.06] px-5 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground shrink-0">
+              {searchQuery || activeFilterCount > 0
+                ? `Showing ${filteredLeads.length} of ${leads.length}`
+                : `All Leads · ${leads.length}`}
+            </span>
+
+            <div className="relative ml-auto flex-1 min-w-[180px] max-w-[320px]">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search name, email, phone, city..."
+                className="h-7 w-full rounded-md border border-white/[0.08] bg-white/[0.04] pl-8 pr-7 text-xs text-foreground placeholder:text-muted-foreground/50 outline-none transition-colors focus:border-white/[0.16] focus:bg-white/[0.06]"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground/60 transition-colors hover:bg-white/[0.08] hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowFilters((v) => !v)}
+              className={`h-7 gap-1.5 rounded-md px-2.5 text-xs border-white/[0.08] hover:bg-white/[0.04] ${
+                showFilters ? "bg-white/[0.04]" : ""
+              }`}
+            >
+              <SlidersHorizontal className="h-3 w-3" />
+              <span className="hidden sm:inline">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500/20 px-1 text-[10px] font-bold text-blue-400">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+
+            {(searchQuery || activeFilterCount > 0) && (
+              <button
+                onClick={clearAllFilters}
+                className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground underline-offset-2 hover:underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {showFilters && (
+            <div className="flex flex-wrap items-center gap-2 pt-1 animate-in fade-in slide-in-from-top-1 duration-150">
+              <FilterSelect
+                label="Status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={uniqueStatuses}
+              />
+              <FilterSelect
+                label="Source"
+                value={sourceFilter}
+                onChange={setSourceFilter}
+                options={uniqueSources}
+              />
+              <FilterSelect
+                label="City"
+                value={cityFilter}
+                onChange={setCityFilter}
+                options={uniqueCities}
+              />
+            </div>
+          )}
         </div>
 
         {/* Table */}
@@ -502,7 +652,8 @@ export default function LeadsView({
                     type="checkbox"
                     className="h-3.5 w-3.5 rounded appearance-none border border-gray-400 bg-transparent checked:bg-blue-500"
                     checked={
-                      leads.length > 0 && selectedLeadIds.size === leads.length
+                      filteredLeads.length > 0 &&
+                      filteredLeads.every((l) => selectedLeadIds.has(l._id))
                     }
                     onChange={toggleAll}
                   />
@@ -533,7 +684,7 @@ export default function LeadsView({
               )}
 
               {/* ── Existing leads ────────────────────────────────── */}
-              {leads.map((lead) => {
+              {filteredLeads.map((lead) => {
                 const isOwnLead =
                   lead.realtorId?._id === currentUserId || !lead.realtorId;
                 const canEdit = isOwnLead || userRole !== "OWNER"; // AGENT cannot see others anyway, OWNER can only edit own leads
@@ -727,6 +878,28 @@ export default function LeadsView({
                   </button>
                 </td>
               </tr>
+
+              {/* No filter matches */}
+              {!loading &&
+                leads.length > 0 &&
+                filteredLeads.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={isOwner ? 9 : 8}
+                      className="px-4 py-10 text-center"
+                    >
+                      <p className="text-sm text-muted-foreground">
+                        No leads match your filters
+                      </p>
+                      <button
+                        onClick={clearAllFilters}
+                        className="mt-2 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300 underline-offset-2 hover:underline"
+                      >
+                        Clear search & filters
+                      </button>
+                    </td>
+                  </tr>
+                )}
 
               {/* Empty state */}
               {!loading && leads.length === 0 && !showNewForm && (
@@ -1107,6 +1280,90 @@ function StatusDropdown({
         />
         {status || "New Inquiry"}
       </span>
+    </div>
+  );
+}
+
+// ── Filter select (dropdown pill for Status / Source / City) ─────────
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const isActive = value !== "all";
+  const displayValue = value === "all" ? "All" : value;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] transition-colors ${
+          isActive
+            ? "bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/20"
+            : "bg-white/[0.04] text-muted-foreground border border-white/[0.08] hover:bg-white/[0.08] hover:text-foreground"
+        }`}
+      >
+        <span className="font-medium">{label}:</span>
+        <span className="max-w-[120px] truncate">{displayValue}</span>
+        <ChevronDown
+          className={`h-2.5 w-2.5 opacity-60 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 max-h-64 min-w-[160px] overflow-auto rounded-lg border border-white/[0.08] bg-[#1a1a1a] py-1 shadow-xl">
+          <button
+            onClick={() => {
+              onChange("all");
+              setOpen(false);
+            }}
+            className={`flex w-full items-center justify-between px-3 py-1.5 text-[12px] transition-colors hover:bg-white/[0.06] ${
+              value === "all" ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            <span>All</span>
+            {value === "all" && <Check className="h-3 w-3" />}
+          </button>
+          {options.length === 0 ? (
+            <div className="px-3 py-1.5 text-[11px] text-muted-foreground/40">
+              No options
+            </div>
+          ) : (
+            options.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => {
+                  onChange(opt);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center justify-between px-3 py-1.5 text-[12px] transition-colors hover:bg-white/[0.06] ${
+                  value === opt ? "text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                <span className="truncate max-w-[180px]">{opt}</span>
+                {value === opt && <Check className="h-3 w-3 shrink-0 ml-2" />}
+              </button>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -36,6 +36,7 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string>("");
   const [marketSearchText, setMarketSearchText] = useState("");
   
   const [formData, setFormData] = useState({
@@ -60,8 +61,11 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
   const [currentUploadField, setCurrentUploadField] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    const parsed =
+      type === "number" ? (value === "" ? 0 : Number(value)) : value;
+    setFormData(prev => ({ ...prev, [name]: parsed }));
+    if (submitError) setSubmitError("");
     // Clear error when user types
     if (errors[name]) {
       setErrors(prev => {
@@ -175,21 +179,46 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
     }
 
     setIsSubmitting(true);
+    setSubmitError("");
     try {
+      const { subscriptionPlan: _ignored, ...payload } = formData;
       const res = await api("/user/onboarding", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...payload,
+          yearsInBusiness: Number(payload.yearsInBusiness) || 0,
+        }),
       });
 
-      if (!res.ok) throw new Error("Submission failed");
-      
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const fieldErrors = data?.errors?.fieldErrors;
+        if (fieldErrors && typeof fieldErrors === "object") {
+          const nextErrors: Record<string, string> = {};
+          Object.entries(fieldErrors).forEach(([k, v]) => {
+            const msg = Array.isArray(v) ? v[0] : String(v);
+            if (msg) nextErrors[k] = msg;
+          });
+          setErrors((prev) => ({ ...prev, ...nextErrors }));
+          if (nextErrors.firstName || nextErrors.lastName || nextErrors.phoneNumber || nextErrors.professionalEmail || nextErrors.yearsInBusiness) setStep(1);
+          else if (nextErrors.markets) setStep(2);
+          else if (nextErrors.brokerageName) setStep(3);
+        }
+        setSubmitError(
+          data?.message || `Submission failed (${res.status})`,
+        );
+        console.error("Onboarding error:", res.status, data);
+        return;
+      }
+
       console.log("User Onboarding Completed:", formData);
       onComplete();
     } catch (err) {
       console.error("Onboarding submission error:", err);
+      setSubmitError("Network error. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -547,6 +576,12 @@ export default function OnboardingForm({ onComplete }: OnboardingFormProps): Rea
         {step === 3 && renderStep3()}
         {step === 4 && renderStep4()}
       </div>
+
+      {submitError && (
+        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] font-medium text-destructive animate-in fade-in slide-in-from-bottom-1">
+          {submitError}
+        </div>
+      )}
 
       <div className="flex justify-between items-center mt-8 pt-6 border-t border-border/30">
         <Button
