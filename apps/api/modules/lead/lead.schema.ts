@@ -23,6 +23,7 @@ export const updateLeadSchema = z.object({
     pipelineId: objectIdSchema.optional(),
     stageId: objectIdSchema.optional(),
     status: z.string().optional(),
+    extra_fields: z.record(z.string(), z.string()).optional(),
 });
 
 export const addLeadsSchema = z.object({
