@@ -78,12 +78,14 @@ export class SMS_Service {
 
     static async assignCampaign(leadId: string, stepIndex = 0, campaignId: string = 'default') {
 
+        const lead = await mongoose.model("Lead").findById(leadId).select("realtorId phone").lean();
+        if (!lead) return { message: "Lead not found" };
+        if (!(lead as any).phone) return { message: "Task skipped: Lead has no phone number." };
+
         let campaign: ISmsCampaign | null;
 
         if (campaignId === 'default') {
-            const lead = await mongoose.model("Lead").findById(leadId).select("userId").lean();
-            if (!lead) return { message: "Lead not found" };
-            campaign = await SMSCampaign.findOne({ isDefault: true, userId: (lead as any).userId });
+            campaign = await SMSCampaign.findOne({ isDefault: true, userId: (lead as any).realtorId });
         } else {
             campaign = await SMSCampaign.findById(campaignId);
         }
@@ -129,11 +131,17 @@ export class SMS_Service {
     static async assignCampaigns(leadIds: string[], stepIndex = 0, campaignId: string = 'default') {
 
         let campaign: ISmsCampaign | null;
+        if (leadIds.length === 0) return { message: "No leads provided", results: [] };
+
+        const validLeads = await mongoose.model("Lead").find({ _id: { $in: leadIds } }).select("_id realtorId phone").lean();
+        const leadsWithPhone = validLeads.filter((l: any) => l.phone && l.phone.trim().length > 0);
+        const validLeadIds = leadsWithPhone.map((l: any) => l._id.toString());
+
+        if (validLeadIds.length === 0) return { message: "Task skipped: No leads with phone numbers", results: [] };
+
         if (campaignId === 'default') {
-            if (leadIds.length === 0) return { message: "No leads provided", results: [] };
-            const firstLead = await mongoose.model("Lead").findById(leadIds[0]).select("userId").lean();
-            if (!firstLead) return { message: "Lead context missing", results: [] };
-            campaign = await SMSCampaign.findOne({ isDefault: true, userId: (firstLead as any).userId });
+            const firstLead = leadsWithPhone[0];
+            campaign = await SMSCampaign.findOne({ isDefault: true, userId: (firstLead as any).realtorId });
         } else {
             campaign = await SMSCampaign.findById(campaignId);
         }
@@ -141,6 +149,8 @@ export class SMS_Service {
         if (!campaign) {
             return { message: "Campaign not found", results: [] };
         }
+        
+        leadIds = validLeadIds;
 
         const step: Istep | null = campaign.steps[stepIndex]!;
         if (!step) {
@@ -364,12 +374,21 @@ export class SMS_Service {
             {
                 $lookup: {
                     from: "smsnumbers",
-                    localField: "lead.userId",
+                    localField: "lead.realtorId",
                     foreignField: "userId",
                     as: "phoneLine"
                 }
             },
             { $unwind: { path: "$phoneLine", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "lead.realtorId",
+                    foreignField: "_id",
+                    as: "realtor"
+                }
+            },
+            { $unwind: { path: "$realtor", preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: "smscampaigns",
@@ -389,6 +408,11 @@ export class SMS_Service {
         const currentCampaignId = unifiedData.campaignId.toString();
 
         // 2. THE AUTO-CORRECT LOGIC
+        if (unifiedData.realtor && !unifiedData.realtor.hasSMSCampaignEnabled) {
+            console.log(`[SMS_Service] User ${unifiedData.realtor._id} disabled SMS campaigns. Discarding task.`);
+            return { message: "Task discarded: SMS campaigns disabled by user." };
+        }
+
         if (currentCampaignId !== campaignIdAtTimeOfScheduling) {
             console.log("Campaign mismatch detected! User changed the campaign. Restarting at Step 1...");
             await this.assignCampaign(unifiedData.lead._id.toString(), 0, currentCampaignId);
@@ -500,10 +524,13 @@ export class SMS_Service {
             const normalizedFrom = this.normalizePhoneNumber(From);
             const LeadModel = mongoose.model("Lead");
 
-            // Look for leads by normalized phone
+            // Look for leads by matching the last 10 digits to accommodate unnormalized DB formats (e.g., (512) 123-4567 )
+            const last10 = normalizedFrom.slice(-10);
+            const digitsRegex = last10.split('').join('\\D*') + '$';
+
             const lead: any = await LeadModel.findOne({
-                phone: { $regex: new RegExp(normalizedFrom.replace('+', '\\+') + '$') },
-                userId: phoneLine.userId
+                phone: { $regex: new RegExp(digitsRegex) },
+                realtorId: phoneLine.userId
             });
 
             if (lead) {

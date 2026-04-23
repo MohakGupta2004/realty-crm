@@ -1,0 +1,39 @@
+graph TD
+    subgraph "External Trigger"
+        Cron[Cron Job / Cloud Scheduler]
+    end
+
+    subgraph "GCP Master Queue (The General)"
+        MT[Master Task]
+    end
+
+    subgraph "Your API Server"
+        S1[Scheduler Endpoint]
+        SW[Dispatch Worker - processScheduler]
+        WW[SMS Worker - processWorkerTask]
+    end
+
+    subgraph "Database"
+        DB[(MongoDB - Enrollments)]
+    end
+
+    subgraph "GCP SMS Queue (The Soldiers)"
+        T1[Lead 1 - 10:00 AM]
+        T2[Lead 2 - 10:15 AM]
+        T3[Lead 3 - 11:30 AM]
+    end
+
+    Cron --> S1
+    S1 --> MT
+    MT --> SW
+    SW -- "1. Scan DB for due leads" --> DB
+    SW -- "2. Create individual tasks" --> T1
+    SW -- "2. Create individual tasks" --> T2
+    SW -- "2. Create individual tasks" --> T3
+    
+    T1 -- "At 10:00 AM" --> WW
+    T2 -- "At 10:15 AM" --> WW
+    T3 -- "At 11:30 AM" --> WW
+    
+    WW -- "Dispatch SMS" --> Twilio[Twilio API]
+    WW -- "Schedule Next Step" --> DB
