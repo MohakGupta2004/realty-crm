@@ -1,7 +1,12 @@
 import { SMS_Service } from "./services/sms.service";
 import type { Request, Response } from "express";
+import { env } from "../../shared/config/env.config";
 import { Lead } from "../lead/lead.model";
+import { User } from "../user/user.model";
+import { SMSNumber } from "./models/smsNumber.model";
 import type { AuthenticatedRequest, AuthenticatedUser } from "../../shared/middleware/requireAuth";
+import twilio from 'twilio';
+import { SMS_GCP_Service } from "./services/sms.gcp.service";
 
 
 export async function onboardUser(req: Request, res: Response) {
@@ -18,45 +23,45 @@ export async function onboardUser(req: Request, res: Response) {
     res.status(200).send("User onboarded successfully");
 }
 
-export async function assignCampaing(req: Request, res: Response){
+export async function assignCampaing(req: Request, res: Response) {
     const authReq = req as AuthenticatedRequest;
     const user = authReq.user as AuthenticatedUser;
 
-    const lead = await Lead.findOne({_id: req.body.leadId, userId: user._id}).select("_id");
-    if(!lead){
-        return res.status(404).json({message: "Lead not found or not assigned to you"});
+    const lead = await Lead.findOne({ _id: req.body.leadId, userId: user._id }).select("_id");
+    if (!lead) {
+        return res.status(404).json({ message: "Lead not found or not assigned to you" });
     }
-    const {campaignId} = req.body;  
-    
-    if(!campaignId){
-        return res.status(400).json({message: "Campaign ID is required"});
+    const { campaignId } = req.body;
+
+    if (!campaignId) {
+        return res.status(400).json({ message: "Campaign ID is required" });
     }
 
     const assignedStatus = await SMS_Service.assignCampaign(lead._id.toString(), 0, campaignId);
-    
-    res.status(200).send({message: "Campaign assigned successfully", assignedStatus});
+
+    res.status(200).send({ message: "Campaign assigned successfully", assignedStatus });
 }
 
-export async function assignCampaings(req: Request, res: Response){
+export async function assignCampaings(req: Request, res: Response) {
     const authReq = req as AuthenticatedRequest;
     const user = authReq.user as AuthenticatedUser;
 
     const { leadIds, campaignId } = req.body;
 
-    if(!Array.isArray(leadIds) || leadIds.length === 0){
-        return res.status(400).json({message: "leadIds must be a non-empty array"});
+    if (!Array.isArray(leadIds) || leadIds.length === 0) {
+        return res.status(400).json({ message: "leadIds must be a non-empty array" });
     }
 
-    if(!campaignId){
-        return res.status(400).json({message: "Campaign ID is required"});
+    if (!campaignId) {
+        return res.status(400).json({ message: "Campaign ID is required" });
     }
 
     // Verify all leads belong to the user
-    const validLeads = await Lead.find({_id: {$in: leadIds}, userId: user._id}).select("_id");
+    const validLeads = await Lead.find({ _id: { $in: leadIds }, userId: user._id }).select("_id");
     const validLeadIds = validLeads.map(l => l._id.toString());
 
     const invalidLeadIds = leadIds.filter((id: string) => !validLeadIds.includes(id));
-    if(invalidLeadIds.length > 0){
+    if (invalidLeadIds.length > 0) {
         return res.status(404).json({
             message: "Some leads were not found or not assigned to you",
             invalidLeadIds,
@@ -311,5 +316,207 @@ export async function deleteStep(req: Request, res: Response) {
             success: false,
             message: error.message || "Failed to delete step",
         });
+    }
+}
+
+// ── Worker Endpoint ───────────────────────────────────────────────────
+
+export async function smsWorker(req: Request, res: Response) {
+    try {
+        const internalSecret = req.headers["x-internal-secret"];
+        if (internalSecret !== env.INTERNAL_SECRET) {
+            return res.status(401).json({ message: "Unauthorized: Invalid internal secret" });
+        }
+
+        const { enrollmentId, campaignIdAtTimeOfScheduling, stepIndexAtTimeOfScheduling } = req.body;
+
+        if (!enrollmentId || !campaignIdAtTimeOfScheduling || stepIndexAtTimeOfScheduling === undefined) {
+            return res.status(400).send("Missing required parameters");
+        }
+
+        const result = await SMS_Service.processWorkerTask(
+            enrollmentId,
+            campaignIdAtTimeOfScheduling,
+            stepIndexAtTimeOfScheduling
+        );
+
+        return res.status(200).send(result.message);
+    } catch (error: any) {
+        console.error("[SMS Controller] smsWorker error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to process SMS worker task",
+        });
+    }
+}
+
+export async function smsDispatchWorker(req: Request, res: Response) {
+    const secret = req.headers['x-internal-secret'];
+    if (secret !== env.INTERNAL_SECRET) {
+        return res.status(401).send("Unauthorized");
+    }
+
+    try {
+        const windowEnd = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        await SMS_Service.processScheduler(windowEnd);
+        return res.status(200).send("Background dispatch complete");
+    } catch (e) {
+        console.error("[SMS Controller] smsDispatchWorker error:", e);
+        return res.status(500).json({ success: false, message: "Scheduler dispatch failed" });
+    }
+}
+
+// ── Lead Messages ─────────────────────────────────────────────────────
+
+export async function getLeadMessages(req: Request, res: Response) {
+    try {
+        const authReq = req as AuthenticatedRequest;
+        const userId = authReq.user._id;
+        const leadId = req.params.leadId as string;
+
+        const messages = await SMS_Service.getLeadMessages(leadId, userId);
+
+        return res.status(200).json({
+            success: true,
+            message: "Lead messages fetched successfully",
+            data: messages,
+        });
+    } catch (error: any) {
+        console.error("[SMS Controller] getLeadMessages error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch lead messages",
+        });
+    }
+}
+
+// ── SMS Settings ──────────────────────────────────────────────────────
+
+export async function getSmsStatus(req: Request, res: Response) {
+    try {
+        const authReq = req as AuthenticatedRequest;
+
+        const isEnabled = await User.exists({
+            _id: authReq.user._id,
+            hasSMSCampaignEnabled: true
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                hasSMSCampaignEnabled: !!isEnabled
+            }
+        });
+    } catch (error: any) {
+        console.error("[SMS Controller] getSmsStatus error:", error);
+        return res.status(500).json({ success: false, message: "Failed to fetch SMS settings" });
+    }
+}
+
+export async function toggleSmsCampaignStatus(req: Request, res: Response) {
+    try {
+        const authReq = req as AuthenticatedRequest;
+        const { hasSMSCampaignEnabled } = req.body;
+
+        if (typeof hasSMSCampaignEnabled !== "boolean") {
+            return res.status(400).json({ success: false, message: "hasSMSCampaignEnabled must be a boolean" });
+        }
+
+        if (hasSMSCampaignEnabled) {
+            const hasPhoneRecord = await SMSNumber.exists({ userId: authReq.user._id });
+            if (!hasPhoneRecord) {
+                return res.status(400).json({
+                    success: false,
+                    message: "You must complete SMS onboarding and acquire a phone number before enabling SMS campaigns."
+                });
+            }
+        }
+
+        await User.updateOne(
+            { _id: authReq.user._id },
+            { $set: { hasSMSCampaignEnabled } }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: `SMS Campaign is now ${hasSMSCampaignEnabled ? "enabled" : "disabled"}`,
+            data: {
+                hasSMSCampaignEnabled
+            }
+        });
+    } catch (error: any) {
+        console.error("[SMS Controller] toggleSmsCampaignStatus error:", error);
+        return res.status(500).json({ success: false, message: "Failed to toggle SMS campaign status" });
+    }
+}
+
+// ── Webhooks ──────────────────────────────────────────────────────────
+
+export async function inboundWebhook(req: Request, res: Response) {
+    console.log("[SMS Controller] Inbound Webhook:", req.body);
+
+    // Twilio Security Validation (Subaccount aware)
+    const twilioSignature = req.headers['x-twilio-signature'] as string;
+    const url = `${env.APP_URL}${req.originalUrl}`;
+
+    // Fetch the correct authToken for this specific phone number
+    const phoneRecord = await SMSNumber.findOne({ number: req.body.To }).lean();
+    const authToken = phoneRecord?.authToken || env.TWILIO_AUTH_TOKEN || "";
+
+    const isValid = twilio.validateRequest(authToken, twilioSignature, url, req.body);
+
+    if (!isValid) {
+        console.error("[SMS Controller] Invalid Twilio Signature");
+        return res.status(403).send("Forbidden");
+    }
+
+    // Return immediately to prevent Twilio timeout retries
+    res.type('text/xml').send('<Response></Response>');
+
+    // Process asynchronously in the background
+    SMS_Service.processInboundWebhook(req.body).catch(error => {
+        console.error("[SMS Controller] Async Inbound Webhook Error:", error);
+    });
+}
+
+export async function statusWebhook(req: Request, res: Response) {
+    console.log("[SMS Controller] Status Webhook:", req.body);
+
+    // Twilio Security Validation (Subaccount aware)
+    const twilioSignature = req.headers['x-twilio-signature'] as string;
+    const url = `${env.APP_URL}${req.originalUrl}`;
+
+    // Fetch the correct authToken for this specific phone number
+    const phoneRecord = await SMSNumber.findOne({ number: req.body.To }).lean();
+    const authToken = phoneRecord?.authToken || env.TWILIO_AUTH_TOKEN || "";
+
+    const isValid = twilio.validateRequest(authToken, twilioSignature, url, req.body);
+
+    if (!isValid) {
+        console.error("[SMS Controller] Invalid Twilio Signature");
+        return res.status(403).send("Forbidden");
+    }
+
+    res.sendStatus(200);
+
+    SMS_Service.processStatusWebhook(req.body).catch(error => {
+        console.error("[SMS Controller] Async Status Webhook Error:", error);
+    });
+}
+
+// ========== Scheduler =============
+
+export async function smsScheduler(req: Request, res: Response) {
+    try {
+        const internalHeader = req.headers['x-internal-secret'];
+        if (internalHeader !== env.INTERNAL_SECRET) {
+            return res.status(401).send("Unauthorized");
+        };
+        await SMS_GCP_Service.createSingleMasterDispatchTask();
+
+        return res.status(200).json({ success: true, message: "Hand-off complete" });
+    } catch (e) {
+        console.error("[SMS Controller] smsScheduler error:", e);
+        return res.status(500).json({ success: false, message: "Failed to schedule SMS" });
     }
 }

@@ -1,9 +1,11 @@
 import twilio from 'twilio';
+import mongoose from 'mongoose';
 import { env } from "../../../shared/config/env.config";
 import type { Istep, ICampaignEnrollment, ISmsCampaign } from '../sms.types';
 import { SMSNumber } from '../models/smsNumber.model';
 import { SMSCampaign } from '../models/smsCampaing.model';
 import { CampaignEnrollment } from '../models/smsCampaingEnrollment.model';
+import { SMSMessage } from '../models/smsMessage.model';
 import { SMS_GCP_Service } from './sms.gcp.service';
 const APP_URL = env.APP_URL;
 
@@ -44,18 +46,34 @@ export class SMS_Service {
         }
     }
 
-    static async onboardUser(user: { _id: any; email: string }, country = 'US', areaCode = 512) {
+    static async onboardUser(user: { _id: any; email: string }, country = 'CA', areaCode = 512) {
+        // Prevent duplicate onboarding
+        const existing = await SMSNumber.exists({ userId: user._id });
+        if (existing) {
+            throw new Error("User already has an SMS number provisioned.");
+        }
+
         const sub = await this.client.api.v2010.accounts.create({ friendlyName: user.email });
 
-        const [num] = await this.client.availablePhoneNumbers(country).local.list({ areaCode, limit: 1 });
+        const available = await this.client.availablePhoneNumbers(country).local.list({ areaCode, limit: 1 });
+        if (!available || available.length === 0) {
+            throw new Error(`No available phone numbers found for area code ${areaCode}.`);
+        }
+        const num = available[0];
 
         const bought = await this.client.incomingPhoneNumbers.create({
             phoneNumber: num.phoneNumber,
             accountSid: sub.sid,
-            smsUrl: `${APP_URL}/api/v1/sms/webhook/inbound`
+            smsUrl: `${APP_URL}/api/v1/sms/webhook/inbound`,
+            statusCallback: `${APP_URL}/api/v1/sms/webhook/status`
         });
 
-        await SMSNumber.create({ userId: user._id, number: bought.phoneNumber, accountSid: sub.sid });
+        await SMSNumber.create({
+            userId: user._id,
+            number: bought.phoneNumber,
+            accountSid: sub.sid,
+            authToken: sub.authToken // Store subaccount token for webhook security
+        });
     }
 
     static async assignCampaign(leadId: string, stepIndex = 0, campaignId: string = 'default') {
@@ -63,7 +81,9 @@ export class SMS_Service {
         let campaign: ISmsCampaign | null;
 
         if (campaignId === 'default') {
-            campaign = await SMSCampaign.findOne({ isDefault: true });
+            const lead = await mongoose.model("Lead").findById(leadId).select("userId").lean();
+            if (!lead) return { message: "Lead not found" };
+            campaign = await SMSCampaign.findOne({ isDefault: true, userId: (lead as any).userId });
         } else {
             campaign = await SMSCampaign.findById(campaignId);
         }
@@ -93,7 +113,12 @@ export class SMS_Service {
 
         if (isNearFuture) {
             // Push directly to GCP Cloud Tasks
-            await SMS_GCP_Service.createGCPTask(enrollment._id.toString(), step.delaySeconds);
+            await SMS_GCP_Service.createGCPTask(
+                enrollment._id.toString(),
+                step.delaySeconds,
+                enrollment.campaignId.toString(),
+                stepIndex
+            );
             return { message: "Campaign assigned successfully", enrollment };
         }
         else {
@@ -102,10 +127,13 @@ export class SMS_Service {
     }
 
     static async assignCampaigns(leadIds: string[], stepIndex = 0, campaignId: string = 'default') {
-        
+
         let campaign: ISmsCampaign | null;
         if (campaignId === 'default') {
-            campaign = await SMSCampaign.findOne({ isDefault: true });
+            if (leadIds.length === 0) return { message: "No leads provided", results: [] };
+            const firstLead = await mongoose.model("Lead").findById(leadIds[0]).select("userId").lean();
+            if (!firstLead) return { message: "Lead context missing", results: [] };
+            campaign = await SMSCampaign.findOne({ isDefault: true, userId: (firstLead as any).userId });
         } else {
             campaign = await SMSCampaign.findById(campaignId);
         }
@@ -152,7 +180,12 @@ export class SMS_Service {
             }).select('_id leadId').lean();
 
             const taskPromises = enrollments.map(enrollment =>
-                SMS_GCP_Service.createGCPTask(enrollment._id.toString(), step.delaySeconds)
+                SMS_GCP_Service.createGCPTask(
+                    enrollment._id.toString(),
+                    step.delaySeconds,
+                    resolvedCampaignId.toString(),
+                    stepIndex
+                )
                     .then(() => ({
                         leadId: enrollment.leadId.toString(),
                         taskCreated: true,
@@ -311,5 +344,307 @@ export class SMS_Service {
         }
 
         return updated;
+    }
+
+    // ── Worker Task Processing ────────────────────────────────────────
+
+    static async processWorkerTask(enrollmentId: string, campaignIdAtTimeOfScheduling: string, stepIndexAtTimeOfScheduling: number) {
+        // 1. One DB read to fetch Enrollment, Lead, Phone line, and Campaign simultaneously 
+        const dbResult = await CampaignEnrollment.aggregate([
+            { $match: { _id: new mongoose.Types.ObjectId(enrollmentId) } },
+            {
+                $lookup: {
+                    from: "leads",
+                    localField: "leadId",
+                    foreignField: "_id",
+                    as: "lead"
+                }
+            },
+            { $unwind: "$lead" },
+            {
+                $lookup: {
+                    from: "smsnumbers",
+                    localField: "lead.userId",
+                    foreignField: "userId",
+                    as: "phoneLine"
+                }
+            },
+            { $unwind: { path: "$phoneLine", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "smscampaigns",
+                    localField: "campaignId",
+                    foreignField: "_id",
+                    as: "campaign"
+                }
+            },
+            { $unwind: { path: "$campaign", preserveNullAndEmptyArrays: true } }
+        ]);
+
+        if (!dbResult || dbResult.length === 0) {
+            return { message: "Task discarded: Enrollment or Lead not found." };
+        }
+
+        const unifiedData = dbResult[0];
+        const currentCampaignId = unifiedData.campaignId.toString();
+
+        // 2. THE AUTO-CORRECT LOGIC
+        if (currentCampaignId !== campaignIdAtTimeOfScheduling) {
+            console.log("Campaign mismatch detected! User changed the campaign. Restarting at Step 1...");
+            await this.assignCampaign(unifiedData.lead._id.toString(), 0, currentCampaignId);
+            return { message: "Task discarded: Lead moved to a new campaign." };
+        }
+
+        if (unifiedData.currentStepIndex !== stepIndexAtTimeOfScheduling) {
+            console.log("Step mismatch! User manually skipped steps or reset. Discarding old task.");
+            return { message: "Task discarded: Step index is outdated." };
+        }
+
+        if (!unifiedData.phoneLine) {
+            return { message: "Task discarded: No SMS number found for user." };
+        }
+
+        if (!unifiedData.campaign || !unifiedData.campaign.steps[unifiedData.currentStepIndex]) {
+            return { message: "Task discarded: Campaign or step not found." };
+        }
+
+        const step = unifiedData.campaign.steps[unifiedData.currentStepIndex];
+        const leadPhone = unifiedData.lead.phone as string | undefined;
+        const fromNumber = unifiedData.phoneLine.number as string | undefined;
+
+        // 3. IDEMPOTENCY CHECK: Ensure we haven't already sent this specific step
+        const alreadySent = await SMSMessage.exists({
+            enrollmentId: unifiedData._id,
+            stepIndex: unifiedData.currentStepIndex,
+            direction: 'outbound'
+        });
+
+        if (alreadySent) {
+            console.log(`[SMS_Service] Step ${unifiedData.currentStepIndex} already sent for enrollment ${enrollmentId}. Skipping.`);
+            return { message: "Task skipped: Message already sent." };
+        }
+
+        // 4. Dispatch actual SMS message
+        // TS Typings strictly check strings to prevent TS2345
+        if (leadPhone && fromNumber) {
+            const twilioResponse = await this.sendSMS(leadPhone, fromNumber, step.message);
+
+            await SMSMessage.create({
+                leadId: unifiedData.lead._id,
+                userId: unifiedData.phoneLine.userId,
+                direction: 'outbound',
+                body: step.message,
+                fromNumber: fromNumber,
+                sid: twilioResponse.sid,
+                stepIndex: unifiedData.currentStepIndex,
+                enrollmentId: unifiedData._id,
+                deliveryStatus: twilioResponse.status || 'queued'
+            });
+        }
+
+        // 5. Compute and inline the next step's database assignments
+        const nextStepIndex = unifiedData.currentStepIndex + 1;
+        if (nextStepIndex < unifiedData.campaign.steps.length) {
+            const nextStep = unifiedData.campaign.steps[nextStepIndex];
+            const sendTime = new Date(Date.now() + (nextStep.delaySeconds * 1000));
+            const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000);
+            const isNearFuture = sendTime <= twoHoursFromNow;
+
+            await CampaignEnrollment.updateOne(
+                { _id: new mongoose.Types.ObjectId(enrollmentId) },
+                {
+                    $set: {
+                        currentStepIndex: nextStepIndex,
+                        nextSmsTime: sendTime,
+                        status: isNearFuture ? 'QUEUED_IN_TASKS' : 'AWAITING_CRON'
+                    }
+                }
+            );
+
+            if (isNearFuture) {
+                await SMS_GCP_Service.createGCPTask(
+                    enrollmentId,
+                    nextStep.delaySeconds,
+                    currentCampaignId,
+                    nextStepIndex
+                );
+            }
+        } else {
+            // Campaign sequence completed
+            await CampaignEnrollment.updateOne(
+                { _id: new mongoose.Types.ObjectId(enrollmentId) },
+                { $set: { status: 'COMPLETED' } }
+            );
+        }
+
+        return { message: "Task processed successfully." };
+    }
+
+
+    // ── Lead Messages ───────────────────────────────────────────────────
+
+    static async getLeadMessages(leadId: string, userId: string) {
+        const messages = await SMSMessage.find({ leadId, userId }).sort({ createdAt: 1 }).lean();
+        return messages;
+    }
+
+    // ── Webhooks ────────────────────────────────────────────────────────
+
+    static async processInboundWebhook(data: { From: string; To: string; Body: string; SmsSid: string }) {
+        const { From, To, Body, SmsSid } = data;
+
+        try {
+            const phoneLine = await SMSNumber.findOne({ number: To });
+            if (!phoneLine) return { success: false, message: "Phone line not found" };
+
+            const normalizedFrom = this.normalizePhoneNumber(From);
+            const LeadModel = mongoose.model("Lead");
+
+            // Look for leads by normalized phone
+            const lead: any = await LeadModel.findOne({
+                phone: { $regex: new RegExp(normalizedFrom.replace('+', '\\+') + '$') },
+                userId: phoneLine.userId
+            });
+
+            if (lead) {
+                if (Body.trim().toUpperCase() === 'STOP') {
+                    // Legal Compliance: Unsubscribe
+                    await LeadModel.findByIdAndUpdate(lead._id, { isMessageUnsubscribed: true, messageUnsubscribedAt: new Date() });
+                    await CampaignEnrollment.updateMany(
+                        { leadId: lead._id, status: { $in: ['AWAITING_CRON', 'QUEUED_IN_TASKS'] } },
+                        { status: 'STOPPED' }
+                    );
+                } else {
+                    // Auto-Pause: Human engagement detected
+                    await CampaignEnrollment.updateMany(
+                        { leadId: lead._id, status: { $in: ['AWAITING_CRON', 'QUEUED_IN_TASKS'] } },
+                        { status: 'PAUSED' }
+                    );
+                }
+            }
+
+            // Log the inbound message
+            await SMSMessage.create({
+                leadId: lead?._id || undefined,
+                userId: phoneLine.userId,
+                direction: 'inbound',
+                body: Body,
+                fromNumber: From,
+                sid: SmsSid
+            });
+
+            return { success: true };
+        } catch (err) {
+            console.error("[SMS_Service] Inbound Error:", err);
+            throw err;
+        }
+    }
+
+    static async processStatusWebhook(data: { MessageSid: string; MessageStatus: string; ErrorCode?: string }) {
+        const { MessageSid, MessageStatus, ErrorCode } = data;
+
+        try {
+            await SMSMessage.findOneAndUpdate(
+                { sid: MessageSid },
+                {
+                    deliveryStatus: MessageStatus,
+                    errorCode: ErrorCode || null
+                }
+            );
+
+            if (MessageStatus === 'failed' || MessageStatus === 'undelivered') {
+                console.log(`[SMS_Service] Message ${MessageSid} failed with code ${ErrorCode}`);
+            }
+
+            return { success: true };
+        } catch (err) {
+            console.error("[SMS_Service] Status Webhook Error:", err);
+            throw err;
+        }
+    }
+
+    static async processScheduler(windowEnd: Date) {
+        try {
+            // Revert any tasks stuck in 'DISPATCHING' for more than 10 minutes
+            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+            await CampaignEnrollment.updateMany(
+                { status: 'DISPATCHING', updatedAt: { $lt: tenMinutesAgo } },
+                { $set: { status: 'AWAITING_CRON' } }
+            );
+
+            // 2. FETCH: Find candidates for dispatch
+            const enrollments = await CampaignEnrollment.find({
+                status: 'AWAITING_CRON',
+                nextSmsTime: { $lte: windowEnd }
+            }).sort({ nextSmsTime: 1 }).limit(50) as any[];
+
+            if (enrollments.length === 0) return;
+
+            // 3. LEASE: Bulk update to 'DISPATCHING' to "lock" them (1 DB call)
+            const enrollmentIds = enrollments.map(e => e._id);
+            await CampaignEnrollment.updateMany(
+                { _id: { $in: enrollmentIds } },
+                { $set: { status: 'DISPATCHING' } }
+            );
+
+            // 4. DISPATCH: Create tasks concurrently
+            const dispatchResults = await Promise.allSettled(enrollments.map(async (enroll) => {
+                if (!enroll || !enroll.nextSmsTime) throw new Error("Missing enrollment or send time");
+
+                const delayInSeconds = Math.max(0,
+                    Math.floor((new Date(enroll.nextSmsTime).getTime() - Date.now()) / 1000)
+                );
+
+                await SMS_GCP_Service.createGCPTask(
+                    enroll._id.toString(),
+                    delayInSeconds,
+                    enroll.campaignId.toString(),
+                    enroll.currentStepIndex
+                );
+
+                return enroll._id;
+            }));
+
+            const successfulIds: mongoose.Types.ObjectId[] = [];
+            const failedIds: mongoose.Types.ObjectId[] = [];
+
+            dispatchResults.forEach((result, index) => {
+                if (result.status === 'fulfilled') {
+                    successfulIds.push(enrollments[index]._id);
+                } else {
+                    const errorReason = (result as PromiseRejectedResult).reason;
+                    console.error(`Failed to dispatch enrollment ${enrollments[index]._id}:`, errorReason);
+                    failedIds.push(enrollments[index]._id);
+                }
+            });
+
+            const finalizePromises = [];
+            if (successfulIds.length > 0) {
+                finalizePromises.push(CampaignEnrollment.updateMany(
+                    { _id: { $in: successfulIds } },
+                    { $set: { status: 'QUEUED_IN_TASKS' } }
+                ));
+            }
+            if (failedIds.length > 0) {
+                finalizePromises.push(CampaignEnrollment.updateMany(
+                    { _id: { $in: failedIds } },
+                    { $set: { status: 'AWAITING_CRON' } }
+                ));
+            }
+
+            await Promise.all(finalizePromises);
+
+        } catch (err) {
+            console.error("[SMS_Service] processScheduler error:", err);
+            throw err;
+        }
+    }
+    // ── Utilities ───────────────────────────────────────────────────────
+
+    /**
+     * Normalizes a phone number to standard format (digits only, optional leading +)
+     */
+    static normalizePhoneNumber(phone: string): string {
+        return phone.replace(/[^\d+]/g, '');
     }
 }

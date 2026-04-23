@@ -1,45 +1,20 @@
 import { CloudTasksClient } from "@google-cloud/tasks";
+import { env } from "../../../shared/config/env.config";
 
 export class SMS_GCP_Service {
     private static client = new CloudTasksClient();
 
-    static async createGCPTask(enrollmentId: string, delaySeconds: number) {
+    static async createGCPTask(enrollmentId: string, delaySeconds: number, campaignIdAtTimeOfScheduling: string, stepIndexAtTimeOfScheduling: number) {
         try {
-
-            /*
-            GCP CONFIG :
-            Max 5 tasks sent per second
-            Max 10 running at same time
-            Retry failed jobs up to 5 times
- 
-            gcloud tasks queues create <queue-name> \
-            --max-dispatches-per-second=5 \
-            --max-concurrent-dispatches=10 \
-            --max-attempts=5
-            */
-
-            const project = process.env.GCP_PROJECT_ID;
-            const location = process.env.GCP_REGION;
-            const queue = process.env.GCP_SMS_QUEUE_NAME;
+            const project = env.GCP_PROJECT_ID;
+            const location = env.GCP_REGION;
+            const queue = env.GCP_SMS_QUEUE_NAME;
 
             if (!project || !location || !queue) {
-                // if (process.env.NODE_ENV === 'development') {
-                //     console.log('GCP Task Queue not configured. Running in local development mode...');
-                //     // Simulate a small delay and call worker directly
-                //     setTimeout(async () => {
-                //         try {
-                //             await WorkerService.sendBatchEmailWithRetry(batchId.toString());
-                //             console.log(`Local worker processed batch ${batchId}`);
-                //         } catch (err) {
-                //             console.error(`Local worker failed batch ${batchId}:`, err);
-                //         }
-                //     }, delay * 1000);
-                //     return { name: 'local-dev-task' };
-                // }
-                throw new Error('Missing required GCP environment variables: GCP_PROJECT_ID, GCP_REGION, or GCP_QUEUE_NAME');
+                throw new Error('Missing required GCP environment variables: GCP_PROJECT_ID, GCP_REGION, or GCP_SMS_QUEUE_NAME');
             }
 
-            const workerUrl = process.env.BACKEND_URL + '/api/v1/sms/worker/send';
+            const workerUrl = env.BACKEND_URL + '/api/v1/sms/worker/send';
 
             const parent = this.client.queuePath(project, location, queue);
             const task = {
@@ -49,11 +24,15 @@ export class SMS_GCP_Service {
                 httpRequest: {
                     httpMethod: 'POST' as const,
                     url: workerUrl,
-                    body: Buffer.from(JSON.stringify({ enrollmentId })).toString('base64'),
+                    body: Buffer.from(JSON.stringify({
+                        enrollmentId,
+                        campaignIdAtTimeOfScheduling,
+                        stepIndexAtTimeOfScheduling
+                    })).toString('base64'),
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-internal-header': process.env.INTERNAL_SECRET ?? '',
-                    },
+                        'x-internal-secret': env.INTERNAL_SECRET!,
+                    }
                 },
             };
             const result = await this.client.createTask({ parent, task });
@@ -63,5 +42,31 @@ export class SMS_GCP_Service {
         } catch (error) {
             throw error;
         }
+    }
+
+    static async createSingleMasterDispatchTask() {
+        const project = env.GCP_PROJECT_ID!;
+        const queue = env.GCP_MASTER_QUEUE_NAME!;
+        const location = env.GCP_REGION!;
+        const url = env.BACKEND_URL + '/api/v1/sms/scheduler/worker';
+
+        if (!project || !queue || !location || !url) {
+            throw new Error('Missing required GCP environment variables: GCP_PROJECT_ID, GCP_REGION, GCP_QUEUE_NAME or BACKEND_URL');
+        }
+
+        const parent = this.client.queuePath(project, location, queue);
+
+        const task = {
+            httpRequest: {
+                httpMethod: 'POST' as const,
+                url,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-internal-secret': env.INTERNAL_SECRET!
+                },
+            },
+        };
+
+        await this.client.createTask({ parent, task });
     }
 }  
