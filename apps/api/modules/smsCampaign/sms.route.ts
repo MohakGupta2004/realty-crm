@@ -21,6 +21,14 @@ import {
     addStep,
     updateStep,
     deleteStep,
+    smsWorker,
+    inboundWebhook,
+    statusWebhook,
+    getLeadMessages,
+    getSmsStatus,
+    toggleSmsCampaignStatus,
+    smsScheduler,
+    smsDispatchWorker,
 } from "./sms.controller";
 import requirePro from "../../shared/middleware/requirePro";
 
@@ -31,14 +39,32 @@ router.get("/health", (_req, res) => {
     res.send("SMS Route running properly");
 });
 
+// ── Worker Endpoint ───────────────────────────────────────────────────
+// This is protected via internal secret validation in the controller
+router.post("/worker/send", smsWorker);
+router.post("/scheduler", smsScheduler);
+router.post('/scheduler/worker', smsDispatchWorker);
+
+// ── Webhooks ──────────────────────────────────────────────────────────
+// These handle incoming POST requests from Twilio
+router.post("/webhook/inbound", inboundWebhook);
+router.post("/webhook/status", statusWebhook);
+
 // ── All routes below require authentication ──────────────────────────
 router.use(requireAuth);
 router.use(requirePro);
 
-// ── Onboarding & Enrollment ──────────────────────────────────────────
+// ── Onboarding & Setup ───────────────────────────────────────────────
 router.post("/onboard", onboardUser);
+router.get("/status", getSmsStatus);
+router.put("/status/toggle", toggleSmsCampaignStatus);
+
+// ── Enrollment ───────────────────────────────────────────────────────
 router.post("/assign", assignCampaing);
 router.post("/assign-bulk", assignCampaings);
+
+// ── Lead Messages ────────────────────────────────────────────────────
+router.get("/lead/:leadId/messages", getLeadMessages);
 
 // ── Campaign CRUD ────────────────────────────────────────────────────
 router.post(
