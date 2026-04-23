@@ -43,6 +43,7 @@ export const env = {
   GCP_REGION: process.env.GCP_REGION,
   GCP_QUEUE_NAME: process.env.GCP_QUEUE_NAME,
   GCP_SMS_QUEUE_NAME: process.env.GCP_SMS_QUEUE_NAME,
+  GCP_MASTER_QUEUE_NAME: process.env.GCP_MASTER_QUEUE_NAME,
 
   // Gmail Pub/Sub
   GMAIL_PUBSUB_TOPIC:
