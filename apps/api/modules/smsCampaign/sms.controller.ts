@@ -396,15 +396,16 @@ export async function getSmsStatus(req: Request, res: Response) {
     try {
         const authReq = req as AuthenticatedRequest;
 
-        const isEnabled = await User.exists({
-            _id: authReq.user._id,
-            hasSMSCampaignEnabled: true
-        });
+        const [isEnabled, hasPhone] = await Promise.all([
+            User.exists({ _id: authReq.user._id, hasSMSCampaignEnabled: true }),
+            SMSNumber.exists({ userId: authReq.user._id })
+        ]);
 
         return res.status(200).json({
             success: true,
             data: {
-                hasSMSCampaignEnabled: !!isEnabled
+                hasSMSCampaignEnabled: !!isEnabled,
+                isOnboarded: !!hasPhone
             }
         });
     } catch (error: any) {
