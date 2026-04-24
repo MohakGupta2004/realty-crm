@@ -97,8 +97,13 @@ All routes require authentication and are prefixed with `/api/v1/sms`.
 | `/campaign` | `POST` | Creates a new campaign | `{ "name": "Drip 1", "steps": [...], "isDefault": true }` |
 | `/campaign` | `GET` | Lists all user campaigns | `N/A` |
 | `/campaign/:campaignId` | `GET` | Fetches a single campaign | `N/A` |
-| `/campaign/:campaignId` | `PUT` | Updates campaign metadata | `{ "name": "New Name", "isActive": true }` |
+| `/campaign/:campaignId` | `PUT` | Updates campaign metadata | `{ "name": "New Name", "isDefault": true }` |
 | `/campaign/:campaignId` | `DELETE` | Deletes a campaign | `N/A` |
+
+> [!NOTE]
+> **Default Campaign Logic:**
+> Only one campaign can be `isDefault` at a time per user. When you set `isDefault: true` (either during creation or update), the backend automatically unsets any previous default campaign for that user.
+
 
 ### 4. Step Management
 | Endpoint | Method | Description | Request Body Example |
