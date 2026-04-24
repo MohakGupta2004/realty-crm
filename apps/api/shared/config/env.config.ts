@@ -35,6 +35,9 @@ export const env = {
   // Frontend URL for OAuth redirects
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:5000",
 
+  // OpenAI
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+
   // CORS
   CORS_ORIGIN: process.env.CORS_ORIGIN || "*",
 
@@ -62,7 +65,58 @@ export const env = {
   TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
 
+  // Stripe
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+
+  // Cloudinary
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+
+  // Static Assets
+  STATIC_SCRIPT_URL: process.env.STATIC_SCRIPT_URL,
+
   get isProduction() {
     return this.NODE_ENV === "production";
   },
 };
+
+// ── Validation ────────────────────────────────────────────────────────
+const REQUIRED_VARS = [
+  "MONGO_URI",
+  "REDIS_URI",
+  "JWT_ACCESS_SECRET",
+  "JWT_REFRESH_SECRET",
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "APP_URL",
+  "INTERNAL_SECRET",
+];
+
+const WARNING_VARS = [
+  "OPENAI_API_KEY",
+  "RESEND_API_KEY",
+  "TWILIO_ACCOUNT_SID",
+  "TWILIO_AUTH_TOKEN",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "GCP_PROJECT_ID",
+  "GCP_MASTER_QUEUE_NAME",
+  "STATIC_SCRIPT_URL",
+  "CLOUDINARY_CLOUD_NAME",
+];
+
+REQUIRED_VARS.forEach((key) => {
+  if (!process.env[key]) {
+    console.error(`\x1b[31m[ENV ERROR] Missing required variable: ${key}\x1b[0m`);
+  }
+});
+
+WARNING_VARS.forEach((key) => {
+  if (!process.env[key]) {
+    console.warn(`\x1b[33m[ENV WARNING] Missing variable: ${key}. Some features may be disabled.\x1b[0m`);
+  }
+});
+
