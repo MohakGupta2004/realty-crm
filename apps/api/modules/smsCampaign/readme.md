@@ -62,6 +62,30 @@ Ensure these are set in your **Cloud Run** configuration:
 
 ---
 
+## 🔄 Full Operational Flow
+
+### 1. Onboarding (Setup)
+*   Realtor purchases a number via `POST /onboard`.
+*   Realtor toggles the global switch to `ON` via `PUT /status/toggle`.
+*   **Safety Guard:** The switch cannot be turned ON unless a phone number has been successfully acquired.
+
+### 2. Enrollment (The "Start" Logic)
+*   **Automatic:** When a lead is created (manually, via CSV upload, or via Website Tracker), the system automatically enrolls them in the Realtor's **Default Campaign**.
+*   **Manual:** A Realtor can override the default and assign a specific campaign to a lead via `POST /assign`.
+*   **Initial State:** Leads are parked in the DB with status `AWAITING_CRON` and a `nextSmsTime` calculated from the first step's delay.
+
+### 3. Execution (The Engine)
+*   **Cron Sweep:** Every 10 minutes, the Master Queue scans for leads due within 2 hours.
+*   **Task Fan-out:** Due leads are moved to the SMS Dispatch Queue (GCP Tasks).
+*   **Worker Check:** Right before sending, the worker performs "Pre-flight Checks" (Is the Master Switch still ON? Is the Campaign still Active? Has the Lead replied already?).
+*   **Dispatch:** If checks pass, the SMS is sent via Twilio.
+
+### 4. Engagement & Takeover
+*   **Auto-Pause:** If a lead replies with *any* text, the system automatically flips that lead to `PAUSED`. Automation stops so the Realtor can take over the chat manually.
+*   **Opt-Out:** If a lead sends "STOP", they are marked as `STOPPED` and globally unsubscribed for legal compliance.
+
+---
+
 ## 🌐 API Documentation (for Frontend)
 
 All routes require authentication and are prefixed with `/api/v1/sms`.
@@ -97,8 +121,21 @@ All routes require authentication and are prefixed with `/api/v1/sms`.
 | `/campaign` | `POST` | Creates a new campaign | `{ "name": "Drip 1", "steps": [...], "isDefault": true }` |
 | `/campaign` | `GET` | Lists all user campaigns | `N/A` |
 | `/campaign/:campaignId` | `GET` | Fetches a single campaign | `N/A` |
-| `/campaign/:campaignId` | `PUT` | Updates campaign metadata | `{ "name": "New Name", "isActive": true }` |
+| `/campaign/:campaignId` | `PUT` | Updates metadata or **Switches Default** | `{ "isDefault": true }` |
 | `/campaign/:campaignId` | `DELETE` | Deletes a campaign | `N/A` |
+| `/campaign/:campaignId/pause` | `POST` | Pauses the entire campaign | `N/A` |
+| `/campaign/:campaignId/resume` | `POST` | Resumes the entire campaign | `N/A` |
+
+> [!IMPORTANT]
+> **Switching the Default Campaign:**
+> To change which campaign is automatically assigned to new leads, send `PUT /campaign/:id` with `{ "isDefault": true }`.
+> The backend will automatically handle the "swap"—unsetting the previous default and setting the new one. This only affects **new leads**; existing leads remain in their original campaigns.
+
+> [!NOTE]
+> **Campaign Pause/Resume Flow:**
+> When the user clicks "Pause Campaign", call `POST /campaign/:id/pause`. 
+> - **Backend:** Sets `isActive: false` and moves active leads to `PAUSED_BY_CAMPAIGN`.
+> - **Behavioral Pause (`PAUSED`)**: Remains separate. Resuming the campaign will **not** accidentally resume leads who replied to you!
 
 ### 4. Step Management
 | Endpoint | Method | Description | Request Body Example |

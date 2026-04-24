@@ -213,6 +213,50 @@ export async function deleteSmsCampaign(req: Request, res: Response) {
     }
 }
 
+export async function pauseSmsCampaign(req: Request, res: Response) {
+    try {
+        const authReq = req as AuthenticatedRequest;
+        const userId = authReq.user._id;
+        const campaignId = req.params.campaignId as string;
+
+        const campaign = await SMS_Service.pauseCampaign(campaignId, userId);
+
+        return res.status(200).json({
+            success: true,
+            message: "SMS campaign paused successfully",
+            data: campaign,
+        });
+    } catch (error: any) {
+        console.error("[SMS Controller] pauseSmsCampaign error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to pause SMS campaign",
+        });
+    }
+}
+
+export async function resumeSmsCampaign(req: Request, res: Response) {
+    try {
+        const authReq = req as AuthenticatedRequest;
+        const userId = authReq.user._id;
+        const campaignId = req.params.campaignId as string;
+
+        const campaign = await SMS_Service.resumeCampaign(campaignId, userId);
+
+        return res.status(200).json({
+            success: true,
+            message: "SMS campaign resumed successfully",
+            data: campaign,
+        });
+    } catch (error: any) {
+        console.error("[SMS Controller] resumeSmsCampaign error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to resume SMS campaign",
+        });
+    }
+}
+
 // ── Step Management ───────────────────────────────────────────────────
 
 export async function addStep(req: Request, res: Response) {
