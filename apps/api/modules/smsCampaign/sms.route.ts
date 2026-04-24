@@ -18,6 +18,8 @@ import {
     getSmsCampaignById,
     updateSmsCampaign,
     deleteSmsCampaign,
+    pauseSmsCampaign,
+    resumeSmsCampaign,
     addStep,
     updateStep,
     deleteStep,
@@ -91,6 +93,18 @@ router.delete(
     "/campaign/:campaignId",
     validate({ params: campaignIdParamSchema }),
     deleteSmsCampaign
+);
+
+router.post(
+    "/campaign/:campaignId/pause",
+    validate({ params: campaignIdParamSchema }),
+    pauseSmsCampaign
+);
+
+router.post(
+    "/campaign/:campaignId/resume",
+    validate({ params: campaignIdParamSchema }),
+    resumeSmsCampaign
 );
 
 // ── Step Management ──────────────────────────────────────────────────

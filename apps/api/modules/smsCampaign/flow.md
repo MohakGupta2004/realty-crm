@@ -28,7 +28,37 @@ GCP Cloud Scheduler (every 10 min)
         │  Header: x-internal-secret
         ▼
 [ smsWorker Controller ]
+        │  Checks if Campaign is Active (If false, aborts & sets PAUSED_BY_CAMPAIGN)
         │  Sends SMS via Twilio
         │  Logs to SMSMessage collection
         │  Schedules next step if exists
 
+---
+
+## Campaign Pause / Resume Flow
+
+[ Frontend ]
+        │
+        │  POST /api/v1/sms/campaign/:id/pause
+        ▼
+[ API Controller ]
+        │
+        │  Sets SMSCampaign.isActive = false
+        │  Updates all 'AWAITING_CRON' / 'DISPATCHING' enrollments to 'PAUSED_BY_CAMPAIGN'
+        ▼
+[ sms-dispatch-queue (In-Flight Tasks) ]
+        │
+        │  Timer Pops -> calls smsWorker Controller
+        │  Worker sees campaign is inactive -> Aborts Twilio send -> Updates to 'PAUSED_BY_CAMPAIGN'
+
+---
+
+[ Frontend ]
+        │
+        │  POST /api/v1/sms/campaign/:id/resume
+        ▼
+[ API Controller ]
+        │
+        │  Sets SMSCampaign.isActive = true
+        │  Updates all 'PAUSED_BY_CAMPAIGN' to 'AWAITING_CRON' (nextSmsTime = now)
+        │  Next Scheduler Tick (every 10 min) picks them up instantly
