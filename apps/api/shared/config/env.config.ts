@@ -84,39 +84,56 @@ export const env = {
 };
 
 // ── Validation ────────────────────────────────────────────────────────
+// ── Validation ────────────────────────────────────────────────────────
 const REQUIRED_VARS = [
+  "NODE_ENV",
+  "PORT",
   "MONGO_URI",
   "REDIS_URI",
   "JWT_ACCESS_SECRET",
   "JWT_REFRESH_SECRET",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
+  "GOOGLE_REDIRECT_URI",
   "APP_URL",
+  "FRONTEND_URL",
+  "BACKEND_URL",
   "INTERNAL_SECRET",
 ];
 
 const WARNING_VARS = [
   "OPENAI_API_KEY",
   "RESEND_API_KEY",
+  "EMAIL_FROM",
   "TWILIO_ACCOUNT_SID",
   "TWILIO_AUTH_TOKEN",
   "STRIPE_SECRET_KEY",
+  "STRIPE_PUBLISHABLE_KEY",
   "STRIPE_WEBHOOK_SECRET",
   "GCP_PROJECT_ID",
+  "GCP_REGION",
+  "GCP_QUEUE_NAME",
+  "GCP_SMS_QUEUE_NAME",
   "GCP_MASTER_QUEUE_NAME",
   "STATIC_SCRIPT_URL",
   "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+  "GMAIL_PUBSUB_TOPIC",
 ];
 
 REQUIRED_VARS.forEach((key) => {
-  if (!process.env[key]) {
+  const val = process.env[key];
+  if (!val || val.trim() === "") {
     console.error(`\x1b[31m[ENV ERROR] Missing required variable: ${key}\x1b[0m`);
   }
 });
 
 WARNING_VARS.forEach((key) => {
-  if (!process.env[key]) {
+  const val = process.env[key];
+  if (!val || val.trim() === "") {
     console.warn(`\x1b[33m[ENV WARNING] Missing variable: ${key}. Some features may be disabled.\x1b[0m`);
   }
 });
+
 
