@@ -253,12 +253,14 @@ export class SMS_Service {
         const campaigns = await SMSCampaign.find({ userId })
             .sort({ createdAt: -1 })
             .lean();
-        return campaigns;
+
+      return campaigns;
     }
 
     static async getCampaignById(campaignId: string, userId: string) {
         const campaign = await SMSCampaign.findOne({ _id: campaignId, userId }).lean();
-        return campaign;
+        const leads = await CampaignEnrollment.find({ campaignId }).select("leadId")
+        return {campaign, leads};
     }
 
     static async updateCampaign(

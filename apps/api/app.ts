@@ -23,7 +23,7 @@ import uploadModule from "./modules/upload/upload.module";
 import trackerModule from "./modules/trackers/tracker.module";
 import paymentModule from "./modules/paymentIntegration/payment.module";
 import smsModule from "./modules/smsCampaign/sms.module";
-
+import morgan from 'morgan'
 const app = express();
 
 // ── Global Middleware ─────────────────────────────────────────────────
@@ -44,7 +44,7 @@ const limiter = rateLimit({
   message: { message: "Too many requests, please try again later." },
 });
 app.use(limiter);
-
+app.use(morgan());
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 

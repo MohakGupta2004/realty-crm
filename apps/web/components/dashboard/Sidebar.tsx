@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, ChevronDown, LogOut, Sun, Moon, Kanban, StickyNote, CheckSquare, ListTodo, Columns3, UserSquare2, Check, UserPlus, PlusSquare, Megaphone, Settings, Inbox, X as CloseIcon, Radar, BarChart3, Globe, ArrowUpLeft } from "lucide-react";
+import { Users, ChevronDown, LogOut, Sun, Moon, Kanban, StickyNote, CheckSquare, ListTodo, Columns3, UserSquare2, Check, UserPlus, PlusSquare, Megaphone, Settings, Inbox, X as CloseIcon, Radar, BarChart3, Globe, ArrowUpLeft, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -19,6 +19,7 @@ export type ActiveViewType =
   | "leads"
   | "inbox"
   | "campaigns"
+  | "sms-campaigns"
   | "pipeline"
   | "notes"
   | "members"
@@ -53,7 +54,8 @@ const NAV_ITEMS: NavItem[] = [
   { key: "leads", label: "Leads", icon: Users },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "inbox", label: "Inbox", icon: Inbox },
-  { key: "campaigns", label: "Campaigns", icon: Megaphone },
+  { key: "campaigns", label: "Email Campaigns", icon: Megaphone },
+  { key: "sms-campaigns", label: "SMS Campaigns", icon: MessageSquare },
   { key: "pipeline", label: "Pipeline", icon: Kanban },
   { key: "notes", label: "Notes", icon: StickyNote },
   {

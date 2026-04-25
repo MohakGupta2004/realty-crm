@@ -9,6 +9,7 @@ import NotesView from "@/components/dashboard/NotesView";
 import MembersView from "@/components/dashboard/MembersView";
 import TasksView from "@/components/dashboard/TasksView";
 import CampaignsView from "@/components/dashboard/CampaignsView";
+import SmsCampaignsView from "@/components/dashboard/SmsCampaignsView";
 import SettingsView from "@/components/dashboard/SettingsView";
 import InboxView from "@/components/dashboard/InboxView";
 import TrackerView from "@/components/dashboard/TrackerView";
@@ -165,6 +166,11 @@ function DashboardContent() {
         <InboxView />
       ) : activeView === "campaigns" ? (
         <CampaignsView
+          workspaceId={activeWorkspaceId}
+          userRole={activeWorkspace?.role || "AGENT"}
+        />
+      ) : activeView === "sms-campaigns" ? (
+        <SmsCampaignsView
           workspaceId={activeWorkspaceId}
           userRole={activeWorkspace?.role || "AGENT"}
         />
