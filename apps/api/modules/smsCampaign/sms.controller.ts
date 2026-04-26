@@ -27,7 +27,7 @@ export async function assignCampaing(req: Request, res: Response) {
     const authReq = req as AuthenticatedRequest;
     const user = authReq.user as AuthenticatedUser;
 
-    const lead = await Lead.findOne({ _id: req.body.leadId, realtorId: user._id }).select("_id");
+    const lead = await Lead.findOne({ _id: req.body.leadId, userId: user._id }).select("_id");
     if (!lead) {
         return res.status(404).json({ message: "Lead not found or not assigned to you" });
     }
@@ -57,7 +57,7 @@ export async function assignCampaings(req: Request, res: Response) {
     }
 
     // Verify all leads belong to the user
-    const validLeads = await Lead.find({ _id: { $in: leadIds }, realtorId: user._id }).select("_id");
+    const validLeads = await Lead.find({ _id: { $in: leadIds }, userId: user._id }).select("_id");
     const validLeadIds = validLeads.map(l => l._id.toString());
 
     const invalidLeadIds = leadIds.filter((id: string) => !validLeadIds.includes(id));
