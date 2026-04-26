@@ -149,7 +149,7 @@ export class SMS_Service {
         if (!campaign) {
             return { message: "Campaign not found", results: [] };
         }
-        
+
         leadIds = validLeadIds;
 
         const step: Istep | null = campaign.steps[stepIndex]!;
@@ -294,6 +294,40 @@ export class SMS_Service {
         return campaign;
     }
 
+    static async pauseCampaign(campaignId: string, userId: string) {
+        const campaign = await SMSCampaign.findOneAndUpdate(
+            { _id: campaignId, userId },
+            { $set: { isActive: false } },
+            { new: true }
+        ).lean();
+
+        if (!campaign) throw new Error("Campaign not found");
+
+        await CampaignEnrollment.updateMany(
+            { campaignId, status: { $in: ['AWAITING_CRON', 'DISPATCHING'] } },
+            { $set: { status: 'PAUSED_BY_CAMPAIGN' } }
+        );
+
+        return campaign;
+    }
+
+    static async resumeCampaign(campaignId: string, userId: string) {
+        const campaign = await SMSCampaign.findOneAndUpdate(
+            { _id: campaignId, userId },
+            { $set: { isActive: true } },
+            { new: true }
+        ).lean();
+
+        if (!campaign) throw new Error("Campaign not found");
+
+        await CampaignEnrollment.updateMany(
+            { campaignId, status: 'PAUSED_BY_CAMPAIGN' },
+            { $set: { status: 'AWAITING_CRON', nextSmsTime: new Date() } }
+        );
+
+        return campaign;
+    }
+
     // ── Step Management ───────────────────────────────────────────────
 
     static async addStep(campaignId: string, userId: string, step: Istep) {
@@ -432,6 +466,12 @@ export class SMS_Service {
 
         if (!unifiedData.campaign || !unifiedData.campaign.steps[unifiedData.currentStepIndex]) {
             return { message: "Task discarded: Campaign or step not found." };
+        }
+
+        if (!unifiedData.campaign.isActive) {
+            console.log(`Campaign ${currentCampaignId} is paused. Halting task.`);
+            await CampaignEnrollment.findByIdAndUpdate(enrollmentId, { status: 'PAUSED_BY_CAMPAIGN' });
+            return { message: "Task discarded: Campaign is paused." };
         }
 
         const step = unifiedData.campaign.steps[unifiedData.currentStepIndex];
