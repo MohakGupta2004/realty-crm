@@ -35,7 +35,5 @@ graph TD
     T2 -- "At 10:15 AM" --> WW
     T3 -- "At 11:30 AM" --> WW
     
-    WW -- "Check Campaign Active?" --> Check{Is Active?}
-    Check -- "No (Paused)" --> Halt[Abort & Mark PAUSED_BY_CAMPAIGN]
-    Check -- "Yes" --> Twilio[Dispatch SMS via Twilio]
-    Twilio -- "Schedule Next Step" --> DB
+    WW -- "Dispatch SMS" --> Twilio[Twilio API]
+    WW -- "Schedule Next Step" --> DB
