@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Eye, EyeOff, Loader2, Check, X } from "lucide-react";
 import { API_BASE_URL, setToken } from "@/lib/auth";
+import ForgotPasswordForm from "./ForgotPasswordForm";
 
 // ── Password rules (must match the backend zod schema) ────────────────
 const PASSWORD_RULES = [
@@ -39,13 +40,17 @@ export default function EmailAuthForm({
   onSuccess,
 }: EmailAuthFormProps) {
   // ── State ───────────────────────────────────────────────────────────
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  if (mode === "forgot") {
+    return <ForgotPasswordForm onBack={() => setMode("login")} />;
+  }
 
   const isRegister = mode === "register";
 
@@ -187,6 +192,19 @@ export default function EmailAuthForm({
           </button>
         </div>
       </div>
+
+      {/* Forgot password (login only) */}
+      {!isRegister && (
+        <div className="flex justify-end -mt-2">
+          <button
+            type="button"
+            onClick={() => setMode("forgot")}
+            className="text-xs text-muted-foreground transition-colors hover:text-primary"
+          >
+            Forgot password?
+          </button>
+        </div>
+      )}
 
       {/* Password strength hints (register only, shown when typing) */}
       {isRegister && password.length > 0 && (

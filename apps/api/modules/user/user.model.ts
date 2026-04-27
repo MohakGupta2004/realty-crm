@@ -63,6 +63,8 @@ const userSchema = new Schema<IUser>(
                type: Boolean,
                default: false,
           },
+          passwordResetToken: String,
+          passwordResetExpires: Date,
      },
      { timestamps: true },
 );
