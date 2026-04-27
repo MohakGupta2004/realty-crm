@@ -245,6 +245,9 @@ export default function LeadsView({
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [members, setMembers] = useState<
+    { _id: string; name: string; role: "OWNER" | "AGENT" }[]
+  >([]);
 
   const tokenPayload = getTokenPayload();
   const currentUserId =
@@ -297,6 +300,57 @@ export default function LeadsView({
     fetchPipelines();
     fetchCurrentUser();
   }, [fetchLeads, fetchPipelines, fetchCurrentUser]);
+
+  useEffect(() => {
+    if (!workspaceId || !isOwner) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api(`/memberships/workspace/${workspaceId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const mapped = (data || [])
+          .filter((m: any) => m?.user)
+          .map((m: any) => ({
+            _id: m.user._id,
+            name: m.user.name,
+            role: m.role as "OWNER" | "AGENT",
+          }));
+        setMembers(mapped);
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, isOwner]);
+
+  async function reassignLeadOwner(leadId: string, newOwnerId: string) {
+    try {
+      const res = await api(`/lead/details/${leadId}/owner`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newOwnerId }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (data?.lead) {
+        setLeads((prev) =>
+          prev.map((l) => (l._id === leadId ? data.lead : l)),
+        );
+        setSelectedLead((prev) =>
+          prev && prev._id === leadId ? data.lead : prev,
+        );
+      } else {
+        fetchLeads();
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   // Keep selected lead in sync after refetch
   useEffect(() => {
@@ -960,6 +1014,10 @@ export default function LeadsView({
           onDeletePipeline={handleDeletePipeline}
           userRole={userRole}
           currentUserId={currentUserId}
+          members={members}
+          onReassignOwner={(newOwnerId) =>
+            reassignLeadOwner(selectedLead._id, newOwnerId)
+          }
         />
       )}
 
@@ -1433,6 +1491,8 @@ function DetailPanel({
   onDeletePipeline,
   userRole,
   currentUserId,
+  members,
+  onReassignOwner,
 }: {
   lead: Lead;
   workspaceId: string;
@@ -1442,6 +1502,8 @@ function DetailPanel({
   onDeletePipeline: (pipelineId: string) => void;
   userRole?: string;
   currentUserId?: string;
+  members?: { _id: string; name: string; role: "OWNER" | "AGENT" }[];
+  onReassignOwner?: (newOwnerId: string) => Promise<boolean>;
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
@@ -1504,6 +1566,8 @@ function DetailPanel({
             onDeletePipeline={onDeletePipeline}
             userRole={userRole}
             currentUserId={currentUserId}
+            members={members}
+            onReassignOwner={onReassignOwner}
           />
         )}
         {activeTab === "notes" && (
@@ -1542,6 +1606,8 @@ function HomeTab({
   onDeletePipeline,
   userRole,
   currentUserId,
+  members,
+  onReassignOwner,
 }: {
   lead: Lead;
   pipelines: Pipeline[];
@@ -1549,7 +1615,14 @@ function HomeTab({
   onDeletePipeline: (pipelineId: string) => void;
   userRole?: string;
   currentUserId?: string;
+  members?: { _id: string; name: string; role: "OWNER" | "AGENT" }[];
+  onReassignOwner?: (newOwnerId: string) => Promise<boolean>;
 }) {
+  const [reassigning, setReassigning] = useState(false);
+  const [reassignError, setReassignError] = useState<string | null>(null);
+  const currentOwnerId = getRealtorId(lead);
+  const canReassign =
+    userRole === "OWNER" && !!members && members.length > 0 && !!onReassignOwner;
   return (
     <div className="px-4 py-4">
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -1558,12 +1631,50 @@ function HomeTab({
       <p className="mb-4 text-[11px] text-muted-foreground/40">General</p>
 
       <div className="space-y-4">
-        {userRole === "OWNER" && (
-          <DetailRow
-            icon={User}
-            label="Agent"
-            value={lead.realtorId?.name || "Unknown"}
-          />
+        {canReassign ? (
+          <div className="flex items-start gap-3">
+            <div className="flex w-24 shrink-0 items-center gap-1.5 pt-0.5">
+              <User className="h-3 w-3 text-muted-foreground/60" />
+              <span className="text-[12px] text-muted-foreground">Agent</span>
+            </div>
+            <div className="flex-1">
+              <select
+                value={currentOwnerId}
+                disabled={reassigning}
+                onChange={async (e) => {
+                  const newId = e.target.value;
+                  if (!newId || newId === currentOwnerId) return;
+                  setReassigning(true);
+                  setReassignError(null);
+                  const ok = await onReassignOwner!(newId);
+                  if (!ok) setReassignError("Failed to reassign");
+                  setReassigning(false);
+                }}
+                className="w-full rounded-md border border-white/[0.08] bg-transparent px-2 py-1 text-[12px] text-foreground outline-none transition-colors hover:border-white/[0.16] focus:border-white/[0.24] disabled:opacity-60"
+              >
+                {members!.map((m) => (
+                  <option
+                    key={m._id}
+                    value={m._id}
+                    className="bg-sidebar text-foreground"
+                  >
+                    {m.name} {m.role === "OWNER" ? "(Owner)" : ""}
+                  </option>
+                ))}
+              </select>
+              {reassignError && (
+                <p className="mt-1 text-[10px] text-red-400">{reassignError}</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          userRole === "OWNER" && (
+            <DetailRow
+              icon={User}
+              label="Agent"
+              value={lead.realtorId?.name || "Unknown"}
+            />
+          )
         )}
         <EditableDetailRow
           icon={Mail}

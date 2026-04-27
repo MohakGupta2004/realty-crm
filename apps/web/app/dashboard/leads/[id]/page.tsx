@@ -57,6 +57,12 @@ export default function LeadDetailPage() {
   const [generalOpen, setGeneralOpen] = useState(true);
   const [systemOpen, setSystemOpen] = useState(false);
   const [extraOpen, setExtraOpen] = useState(true);
+  const [members, setMembers] = useState<
+    { _id: string; name: string; role: "OWNER" | "AGENT" }[]
+  >([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [reassigning, setReassigning] = useState(false);
+  const [reassignError, setReassignError] = useState<string | null>(null);
 
   const fetchLead = useCallback(async () => {
     if (!leadId) return;
@@ -83,12 +89,100 @@ export default function LeadDetailPage() {
     fetchLead();
   }, [fetchLead]);
 
+  useEffect(() => {
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("accessToken") ||
+            localStorage.getItem("token")
+          : null;
+      if (!token) return;
+      const [, payload] = token.split(".");
+      if (!payload) return;
+      const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized.padEnd(
+        Math.ceil(normalized.length / 4) * 4,
+        "="
+      );
+      const decoded = JSON.parse(atob(padded));
+      if (decoded?.id) setCurrentUserId(decoded.id);
+    } catch {
+      /* silent */
+    }
+  }, []);
+
   const workspaceId = useMemo(() => {
     if (!lead) return "";
     const wid = (lead as any).workspaceId;
     if (!wid) return "";
     return typeof wid === "string" ? wid : wid._id || "";
   }, [lead]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api(`/memberships/workspace/${workspaceId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const mapped = (data || [])
+          .filter((m: any) => m?.user)
+          .map((m: any) => ({
+            _id: m.user._id,
+            name: m.user.name,
+            role: m.role as "OWNER" | "AGENT",
+          }));
+        setMembers(mapped);
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
+  const isOwner = useMemo(() => {
+    if (!currentUserId) return false;
+    return members.some(
+      (m) => m._id === currentUserId && m.role === "OWNER"
+    );
+  }, [members, currentUserId]);
+
+  const currentOwnerId = useMemo(() => {
+    if (!lead?.realtorId) return "";
+    return typeof lead.realtorId === "object"
+      ? (lead.realtorId as any)._id
+      : (lead.realtorId as unknown as string);
+  }, [lead]);
+
+  const handleReassign = useCallback(
+    async (newOwnerId: string) => {
+      if (!leadId || !newOwnerId || newOwnerId === currentOwnerId) return;
+      setReassigning(true);
+      setReassignError(null);
+      try {
+        const res = await api(`/lead/details/${leadId}/owner`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newOwnerId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setReassignError(data?.message || "Failed to reassign");
+          return;
+        }
+        if (data?.lead) setLead(data.lead);
+      } catch (e: any) {
+        setReassignError(e?.message || "Failed to reassign");
+      } finally {
+        setReassigning(false);
+      }
+    },
+    [leadId, currentOwnerId]
+  );
 
   const extraEntries = useMemo(() => {
     if (!lead?.extra_fields) return [] as [string, string][];
@@ -229,12 +323,23 @@ export default function LeadDetailPage() {
             open={systemOpen}
             onToggle={() => setSystemOpen((o) => !o)}
           >
-            {lead.realtorId && typeof lead.realtorId === "object" && (
-              <FieldRow
-                icon={UserIcon}
-                label="Agent"
-                value={lead.realtorId.name}
+            {isOwner && members.length > 0 ? (
+              <OwnerSelectRow
+                currentOwnerId={currentOwnerId}
+                members={members}
+                disabled={reassigning}
+                error={reassignError}
+                onChange={handleReassign}
               />
+            ) : (
+              lead.realtorId &&
+              typeof lead.realtorId === "object" && (
+                <FieldRow
+                  icon={UserIcon}
+                  label="Agent"
+                  value={lead.realtorId.name}
+                />
+              )
             )}
             <FieldRow
               icon={Calendar}
@@ -415,4 +520,50 @@ function formatLabel(key: string) {
   return key
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function OwnerSelectRow({
+  currentOwnerId,
+  members,
+  disabled,
+  error,
+  onChange,
+}: {
+  currentOwnerId: string;
+  members: { _id: string; name: string; role: "OWNER" | "AGENT" }[];
+  disabled: boolean;
+  error: string | null;
+  onChange: (newOwnerId: string) => void;
+}) {
+  return (
+    <div className="flex items-start gap-3 px-5 py-2">
+      <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center text-muted-foreground/60">
+        <UserIcon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          Agent
+        </p>
+        <select
+          value={currentOwnerId}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="mt-1 w-full rounded-md border border-white/[0.08] bg-transparent px-2 py-1 text-[12px] text-foreground outline-none transition-colors hover:border-white/[0.16] focus:border-white/[0.24] disabled:opacity-60"
+        >
+          {members.map((m) => (
+            <option
+              key={m._id}
+              value={m._id}
+              className="bg-sidebar text-foreground"
+            >
+              {m.name} {m.role === "OWNER" ? "(Owner)" : ""}
+            </option>
+          ))}
+        </select>
+        {error && (
+          <p className="mt-1 text-[10px] text-red-400">{error}</p>
+        )}
+      </div>
+    </div>
+  );
 }
