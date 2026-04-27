@@ -1,7 +1,10 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { Resend } from "resend";
 import { OAuth2Client } from "google-auth-library";
 import { env } from "../../shared/config/env.config";
+
+const resend = new Resend(env.RESEND_API_KEY);
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -220,6 +223,54 @@ class AuthService {
     );
 
     return { ...tokens, user: userService.toResponse(user) };
+  }
+
+  // ── Forgot Password ───────────────────────────────────────────────
+  async forgotPassword(email: string): Promise<void> {
+    const user = await userService.findByEmail(email);
+    if (!user) return; // silent — don't leak whether email exists
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await userService.updateUser(String(user._id), {
+      passwordResetToken: token,
+      passwordResetExpires: expires,
+    });
+
+    const resetUrl = `${env.FRONTEND_URL}/auth/reset-password?token=${token}`;
+
+    await resend.emails.send({
+      from: env.EMAIL_FROM,
+      to: email,
+      subject: "Reset your password",
+      html: `
+        <p>Hi ${user.name},</p>
+        <p>You requested a password reset. Click the link below to set a new password:</p>
+        <p><a href="${resetUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">Reset Password</a></p>
+        <p>This link expires in 1 hour. If you didn't request this, ignore this email.</p>
+      `,
+    });
+  }
+
+  // ── Reset Password ────────────────────────────────────────────────
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const { User } = await import("../user/user.model");
+    const user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      throw { status: 400, message: "Invalid or expired reset token" };
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    user.tokenVersion += 1; // invalidate all existing sessions
+    await user.save();
   }
 
   // ── Helpers ───────────────────────────────────────────────────────

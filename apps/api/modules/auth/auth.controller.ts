@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { env } from "../../shared/config/env.config";
 import { registerSchema, loginSchema } from "./auth.types";
 import { authService } from "./auth.service";
+
 import { emailIntegrationService } from "../emailIntegration/emailIntegration.service";
 
 const refreshCookieSameSite = env.AUTH_COOKIE_SAME_SITE as
@@ -98,6 +99,32 @@ export async function logout(_req: Request, res: Response): Promise<void> {
     ...(env.AUTH_COOKIE_DOMAIN ? { domain: env.AUTH_COOKIE_DOMAIN } : {}),
   });
   res.status(200).json({ message: "Logout successful" });
+}
+
+// ── POST /auth/forgot-password ───────────────────────────────────────
+export async function forgotPassword(req: Request, res: Response): Promise<void> {
+  try {
+    await authService.forgotPassword(req.body.email);
+    // Always 200 — don't leak whether email exists
+    res.status(200).json({ message: "If that email is registered, a reset link has been sent." });
+  } catch {
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+// ── POST /auth/reset-password ────────────────────────────────────────
+export async function resetPassword(req: Request, res: Response): Promise<void> {
+  try {
+    const { token, password } = req.body;
+    await authService.resetPassword(token, password);
+    res.status(200).json({ message: "Password reset successful" });
+  } catch (error: any) {
+    if (error.status) {
+      res.status(error.status).json({ message: error.message });
+      return;
+    }
+    res.status(500).json({ message: "Internal server error" });
+  }
 }
 
 // ── GET /auth/google ─────────────────────────────────────────────────

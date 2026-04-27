@@ -28,6 +28,8 @@ export interface IUser extends Document {
     hasSMSCampaignEnabled?: boolean;
     avatarUrl?: string;
     website?: string;
+    passwordResetToken?: string;
+    passwordResetExpires?: Date;
     createdAt: Date;
     updatedAt: Date;
 }
