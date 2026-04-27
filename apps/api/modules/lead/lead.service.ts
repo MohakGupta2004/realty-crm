@@ -272,6 +272,64 @@ export class LeadService {
     return await Lead.findOneAndDelete({ realtorId, _id: leadId }).lean();
   }
 
+  static async reassignOwner(
+    callerId: string,
+    leadId: string,
+    newOwnerId: string,
+  ) {
+    const lead = await Lead.findById(leadId).lean();
+    if (!lead) {
+      throw new Error("Lead not found");
+    }
+
+    const callerMembership = await Membership.findOne({
+      workspace: lead.workspaceId,
+      user: callerId,
+      isRemoved: false,
+    });
+    if (!callerMembership || callerMembership.role !== "OWNER") {
+      throw new Error("Only workspace owners can reassign leads");
+    }
+
+    const newOwnerMembership = await Membership.findOne({
+      workspace: lead.workspaceId,
+      user: newOwnerId,
+      isRemoved: false,
+    });
+    if (!newOwnerMembership) {
+      throw new Error("New owner is not a member of this workspace");
+    }
+
+    if (lead.realtorId.toString() === newOwnerId) {
+      return await Lead.findById(leadId)
+        .populate("stageId", "colorIndex name")
+        .populate("realtorId", "name email")
+        .lean();
+    }
+
+    const updatedLead = await Lead.findByIdAndUpdate(
+      leadId,
+      { realtorId: newOwnerId },
+      { new: true, runValidators: true },
+    )
+      .populate("stageId", "colorIndex name")
+      .populate("realtorId", "name email")
+      .lean();
+
+    if (updatedLead) {
+      const ownerName =
+        (updatedLead.realtorId as any)?.name || newOwnerId;
+      await ActivityService.logActivity({
+        leadId,
+        realtorId: callerId,
+        type: ActivityType.LEAD_UPDATED,
+        content: `Reassigned lead to ${ownerName}`,
+      });
+    }
+
+    return updatedLead;
+  }
+
   static async addLeads(
     leads: ILeadCreate[],
     realtorId: string,

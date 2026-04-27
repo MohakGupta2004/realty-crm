@@ -45,6 +45,10 @@ export const assignCampaignSchema = z.object({
     workspaceId: objectIdSchema,
 });
 
+export const reassignOwnerSchema = z.object({
+    newOwnerId: objectIdSchema,
+});
+
 export const leadIdParamSchema = z.object({
     id: objectIdSchema,
 });

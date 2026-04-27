@@ -89,6 +89,29 @@ export async function updateLead(req: Request, res: Response) {
     }
 }
 
+// PUT /details/:id/owner
+export async function reassignLeadOwner(req: Request, res: Response) {
+    try {
+        const authReq = req as AuthenticatedRequest;
+        const leadId = req.params.id as string;
+        const callerId = authReq.user.id;
+        const { newOwnerId } = req.body as { newOwnerId: string };
+        const lead = await LeadService.reassignOwner(callerId, leadId, newOwnerId);
+        if (!lead) {
+            res.status(404).json({ message: "Lead not found" });
+            return;
+        }
+        res.status(200).json({ lead });
+    } catch (error: any) {
+        const msg = error.message || "Failed to reassign lead";
+        const status = msg.includes("Only workspace owners") ? 403
+            : msg.includes("not a member") ? 400
+            : msg.includes("not found") ? 404
+            : 400;
+        res.status(status).json({ message: msg });
+    }
+}
+
 // DELETE /details/:id
 export async function deleteLead(req: Request, res: Response) {
     try {
