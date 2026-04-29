@@ -54,11 +54,52 @@ This is the "magic" that makes the UI look consistent. Even when you are just vi
 
 ---
 
-## Technical Architecture Logic
+## Advanced Dynamic Filtering (Smart Views)
 
-*   **Database Cleanliness**: We avoid "bloating" the Lead documents with hundreds of dynamic tag IDs. This prevents your database from slowing down as you add more tags.
-*   **Scalable Virtualization**: The CPU cost of matching leads against tags happens only for the 50 leads currently being viewed. This is $O(PageSize)$, making it just as fast if you have 1,000 leads or 1,000,000 leads.
-*   **Pre-compiled Matchers**: By using `sift` matchers compiled outside the loop, we eliminate the overhead of parsing query logic for every lead, ensuring sub-millisecond badge generation.
+The `filters` object supports full MongoDB query syntax, allowing for extremely flexible segmenting.
+
+### 1. Standard Fields (Exact Match)
+```json
+{ "city": "Vancouver", "status": "New Inquiry" }
+```
+> [!TIP]
+> **Automated Case-Insensitivity**: Fields like `city`, `email`, and `source` are automatically lowercased. You can search for "Vancouver" or "vancouver" and it will match correctly.
+
+### 2. Custom Data (`extra_fields`)
+Use **Dot Notation** to filter data stored inside the `extra_fields` object.
+```json
+{
+  "extra_fields.budget": { "$gte": 500000 },
+  "extra_fields.property_type": "Condo",
+  "extra_fields.is_priority": true
+}
+```
+
+### 3. Range & Comparison Operators
+*   `$gt` / `$gte`: Greater than (or equal)
+*   `$lt` / `$lte`: Less than (or equal)
+*   `$ne`: Not equal
+```json
+{ "extra_fields.score": { "$gt": 80 } }
+```
+
+### 4. Matching Multiple Values (`$in`)
+Match a lead if a field contains any of the values in a list.
+```json
+{ "source": { "$in": ["Facebook", "Instagram", "TikTok"] } }
+```
+
+### 5. Existence Checks (`$exists`)
+Find leads that have (or don't have) a specific custom field.
+```json
+{ "extra_fields.referral_source": { "$exists": true } }
+```
+
+### 6. Advanced Text Matching (Regex)
+Use regex for partial matches or case-insensitive search on fields that are NOT automatically lowercased (like `name`).
+```json
+{ "name": { "$regex": "John", "$options": "i" } }
+```
 
 ---
 
@@ -69,7 +110,44 @@ This is the "magic" that makes the UI look consistent. Even when you are just vi
 *   `POST /api/v1/tag/create`: Create a new Tag. Requires `x-workspace-id` header.
     *   Body: `{ "name": string, "type": "MANUAL" | "DYNAMIC", "filters"?: object, "color"?: string }`
 *   `GET /api/v1/tag/list`: List all tags in the workspace. Requires `x-workspace-id` header.
+*   `GET /api/v1/tag/filter-schema`: **Dynamic Schema Discovery**. Returns all available fields for building filters (Standard + unique custom `extra_fields` found in the workspace).
 *   `PATCH /api/v1/tag/:id`: Update tag metadata or filters.
+
+---
+
+## UI Integration: Building a Dynamic Tag Builder
+
+To build a "No-Code" tag builder in your UI, use the `filter-schema` endpoint. It provides the metadata needed to dynamically generate a filter dropdown.
+
+### Schema Discovery Endpoint
+`GET /api/v1/tag/filter-schema`
+
+**What it returns:**
+1.  **Standard Fields**: A hardcoded list of lead fields (`city`, `status`, `source`, etc.) with their UI labels and types.
+2.  **Discovered Custom Fields**: It automatically scans the most recent 1,000 leads in the workspace and finds all unique keys inside the `extra_fields` object.
+    *   **Auto-Formatting**: Keys like `budget_limit` are automatically converted to human-readable labels like `"Budget Limit"`.
+    *   **Direct Key Mapping**: Custom keys are prefixed with `extra_fields.` (e.g., `extra_fields.budget_limit`) so the frontend can map them directly to the filter object.
+
+**Example Response:**
+```json
+{
+  "standard": [
+    { "key": "city", "label": "City", "type": "text" },
+    { "key": "status", "label": "Current Status", "type": "text" }
+  ],
+  "custom": [
+    { "key": "extra_fields.budget", "label": "Budget", "type": "custom" },
+    { "key": "extra_fields.property_type", "label": "Property Type", "type": "custom" }
+  ]
+}
+```
+
+### Why this is powerful:
+*   **Zero Configuration**: If a user imports 10,000 leads with a new column `"Mortgage Pre-approved"`, that field will **instantly** appear as a filter option in the Tag creation UI without any frontend code changes.
+*   **Performance**: The discovery logic uses a highly optimized MongoDB aggregation capped at 1,000 leads, ensuring the API remains fast even with millions of records.
+
+---
+
 *   `DELETE /api/v1/tag/:id`: Delete a tag definition.
 
 ### Lead Tagging (`/api/v1/lead`)
@@ -82,74 +160,176 @@ This is the "magic" that makes the UI look consistent. Even when you are just vi
 
 ---
 
+## Postman Testing Examples
+
+### 1. Create a Dynamic Tag
+**URL**: `POST {{baseUrl}}/api/v1/tag/create`
+**Headers**: `x-workspace-id: 69c41e7fe2bc69a5d8e8b2d3`
+
+**Request Body**:
+```json
+{
+  "name": "Hot Leads in Vancouver",
+  "color": "#F59E0B",
+  "type": "DYNAMIC",
+  "filters": {
+    "city": "Vancouver",
+    "status": "New Inquiry"
+  }
+}
+```
+
+**Success Response (201)**:
+```json
+{
+  "name": "Hot Leads in Vancouver",
+  "color": "#F59E0B",
+  "userId": "69c416fc7b890371a54c0d5d",
+  "workspaceId": "69c41e7fe2bc69a5d8e8b2d3",
+  "type": "DYNAMIC",
+  "filters": {
+    "city": "Vancouver",
+    "status": "New Inquiry"
+  },
+  "_id": "69f24a32a64d2abc4ed24a41",
+  "createdAt": "2026-04-29T18:13:06.252Z",
+  "updatedAt": "2026-04-29T18:13:06.252Z"
+}
+```
+
+### 2. Assign Manual Tag to Leads
+**URL**: `POST {{baseUrl}}/api/v1/lead/assign-tags`
+**Headers**: `x-workspace-id: 69c41e7fe2bc69a5d8e8b2d3`
+
+**Request Body**:
+```json
+{
+  "leadIds": ["69f2318921000eb637da1d45"],
+  "tagId": "69f22ae67fedd3b19f6e0c25"
+}
+```
+
+**Response (200)**:
+```json
+{
+  "success": true,
+  "modifiedCount": 1
+}
+```
+
+### 3. List All Tags in Workspace
+**URL**: `GET {{baseUrl}}/api/v1/tag/list`
+**Headers**: `x-workspace-id: 69c41e7fe2bc69a5d8e8b2d3`
+
+**Response (200)**:
+```json
+[
+  {
+    "_id": "69f22ae67fedd3b19f6e0c25",
+    "name": "PRAMIT TAG",
+    "color": "blue",
+    "userId": "69c416fc7b890371a54c0d5d",
+    "workspaceId": "69c41e7fe2bc69a5d8e8b2d3",
+    "type": "MANUAL",
+    "createdAt": "2026-04-29T15:59:34.541Z",
+    "updatedAt": "2026-04-29T15:59:34.541Z"
+  }
+]
+```
+
+### 4. Fetch Leads with Merged Tags (Manual + Virtual)
+**URL**: `GET {{baseUrl}}/api/v1/lead/workspace/69c41e7fe2bc69a5d8e8b2d3`
+
+**Response (200)**:
+```json
+{
+  "leads": [
+    {
+      "_id": "69f2318921000eb637da1d45",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "status": "New Inquiry",
+      "tags": [
+        {
+          "_id": "69f22ae67fedd3b19f6e0c25",
+          "name": "PRAMIT TAG",
+          "color": "blue",
+          "type": "MANUAL"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 5. Filtering by Dynamic Tag (Smart View)
+**URL**: `GET {{baseUrl}}/api/v1/lead/workspace/69c41e7fe2bc69a5d8e8b2d3?tagId=69f24a32a64d2abc4ed24a41`
+
+**Success Response (200)**:
+```json
+{
+    "leads": [
+        {
+            "_id": "69f24a20a64d2abc4ed24a32",
+            "name": "John Doe 2 Test",
+            "email": "john2@example.com",
+            "city": "Vancouver",
+            "status": "New Inquiry",
+            "tags": [
+                {
+                    "_id": "69f24a32a64d2abc4ed24a41",
+                    "name": "Hot Leads in Vancouver",
+                    "color": "#F59E0B",
+                    "type": "DYNAMIC",
+                    "filters": {
+                        "city": "Vancouver",
+                        "status": "New Inquiry"
+                    }
+                }
+            ]
+        }
+    ]
+}
+```
+
+
+
+---
+
+## Frontend Implementation Flow (Tag Creation UI)
+
+"Tag Creation" UI flow:
+
+### Step 1: Initialize the Filter Builder
+Call `GET /api/v1/tag/filter-schema`.
+*   **Standard Fields**: Populate your primary dropdown with these (City, Status, etc.).
+*   **Custom Fields**: Populate the "Custom Fields" section of your dropdown with the `custom` array.
+*   **User Experience**: This ensures that even if a new custom field was just added to a lead, it shows up in your UI immediately.
+
+### Step 2: Build the Filter Logic
+When the user picks a field and a value (e.g., "Budget" > "500000"):
+*   Use the `key` provided in the schema (`extra_fields.budget`) as the JSON key.
+*   If it's a range, use MongoDB operators: `{ "extra_fields.budget": { "$gte": 500000 } }`.
+
+### Step 3: Save the Tag
+Send the constructed `filters` object to `POST /api/v1/tag/create`.
+*   Set `type: "DYNAMIC"` to make it an automatic "Smart View".
+*   Set `type: "MANUAL"` if the user just wants a static label.
+
+### Step 4: Displaying Tags (List & Details)
+On the Lead list or Lead details pages:
+*   The API returns a unified `tags` array for every lead.
+*   **Don't check for types**: Just iterate through `lead.tags` and render each item as a badge using its `name` and `color`. The API handles the "virtual" logic for you.
+
+---
+
 ## Frontend Integration Note
 The Lead object in the response will always have a unified `tags` array:
 ```json
 "tags": [
   { "_id": "...", "name": "Friend", "type": "MANUAL", "color": "..." },
-  { "_id": "...", "name": "Vancouver Buyers", "type": "DYNAMIC", "color": "..." }
+  { "_id": "...", "name": "Luxury Condo Buyers", "type": "DYNAMIC", "color": "..." }
 ]
 ```
-The UI doesn't need to know the difference between Manual and Dynamic for display purposes; it should simply render all objects in the `tags` array as badges.
-
----
-
-## Postman Testing Examples
-
-### 1. Create a Manual Tag
-**URL**: `POST {{baseUrl}}/api/v1/tag/create`
-**Headers**: `x-workspace-id: YOUR_WORKSPACE_ID`
-**Body**:
-```json
-{
-  "name": "VIP Client",
-  "color": "#EF4444",
-  "type": "MANUAL"
-}
-```
-
-### 2. Create a Dynamic Tag (Smart Filter)
-**URL**: `POST {{baseUrl}}/api/v1/tag/create`
-**Headers**: `x-workspace-id: YOUR_WORKSPACE_ID`
-**Body**:
-```json
-{
-  "name": "Hot Leads in Vancouver",
-  "type": "DYNAMIC", // Options: "MANUAL" | "DYNAMIC" (Default: "MANUAL")
-  "filters": { "city": "Vancouver", "status": "New Inquiry" } // Casing is automatically handled
-}
-```
-
-> [!TIP]
-> **Automated Case-Insensitivity**: The system automatically standardizes fields like `city`, `email`, and `source` to lowercase. You can create tags using any casing (e.g., "Vancouver" or "vancouver"), and they will match correctly against leads.
-
-
-
-### 3. Assign Manual Tag to Leads
-**URL**: `POST {{baseUrl}}/api/v1/lead/assign-tags`
-**Headers**: `x-workspace-id: YOUR_WORKSPACE_ID`
-**Body**:
-```json
-{
-  "leadIds": ["64a1b...", "64a1c..."],
-  "tagId": "PASTE_MANUAL_TAG_ID_HERE"
-}
-```
-
-### 4. Fetch Leads Filtered by Tag (Manual or Dynamic)
-**URL**: `GET {{baseUrl}}/api/v1/lead/workspace/YOUR_WORKSPACE_ID?tagId=PASTE_TAG_ID_HERE`
-**Headers**: `x-workspace-id: YOUR_WORKSPACE_ID`
-
-### 5. Update Dynamic Tag Filters
-**URL**: `PATCH {{baseUrl}}/api/v1/tag/PASTE_TAG_ID_HERE`
-**Headers**: `x-workspace-id: YOUR_WORKSPACE_ID`
-**Body**:
-```json
-{
-  "filters": {
-    "city": "Seattle",
-    "status": "Qualified"
-  }
-}
-```
+The UI should simply render all objects in the `tags` array as badges.
 

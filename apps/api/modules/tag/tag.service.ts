@@ -1,6 +1,8 @@
 import { Tag } from "./tag.model";
 import { Membership } from "../memberships/memberships.model";
+import { Lead } from "../lead/lead.model";
 import type { ITagCreate, ITagUpdate } from "./tag.types";
+import mongoose from "mongoose";
 
 export class TagService {
   static async createTag(tagData: ITagCreate) {
@@ -96,5 +98,40 @@ export class TagService {
     // That logic will be placed in the controller or a background worker, or handled by the Lead model logic lazily.
 
     return deletedTag;
+  }
+
+  static async getFilterSchema(workspaceId: string) {
+    const standardFields = [
+      { key: "name", label: "Lead Name", type: "text" },
+      { key: "email", label: "Email Address", type: "text" },
+      { key: "phone", label: "Phone Number", type: "text" },
+      { key: "city", label: "City", type: "text" },
+      { key: "source", label: "Lead Source", type: "text" },
+      { key: "status", label: "Current Status", type: "text" },
+      { key: "type", label: "Lead Type", type: "select", options: ["BUYER", "SELLER"] },
+    ];
+
+    // Discovery: Find all unique keys used in extra_fields for this workspace
+    // We limit to 1000 most recent leads to keep it fast
+    const extraFieldsDiscovery = await Lead.aggregate([
+      { $match: { workspaceId: new mongoose.Types.ObjectId(workspaceId) } },
+      { $sort: { createdAt: -1 } },
+      { $limit: 1000 },
+      { $project: { kv: { $objectToArray: "$extra_fields" } } },
+      { $unwind: "$kv" },
+      { $group: { _id: null, keys: { $addToSet: "$kv.k" } } }
+    ]);
+
+    const discoveredKeys = extraFieldsDiscovery[0]?.keys || [];
+    const extraFields = discoveredKeys.map((key: string) => ({
+      key: `extra_fields.${key}`,
+      label: key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+      type: "custom"
+    }));
+
+    return {
+      standard: standardFields,
+      custom: extraFields,
+    };
   }
 }

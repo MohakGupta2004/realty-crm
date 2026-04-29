@@ -86,4 +86,18 @@ export class TagController {
       res.status(400).json({ error: error.message });
     }
   }
+
+  static async getFilterSchema(req: Request, res: Response) {
+    try {
+      const workspaceId = req.headers["x-workspace-id"] as string;
+      if (!workspaceId) {
+        return res.status(400).json({ error: "Workspace ID is required in headers" });
+      }
+
+      const schema = await TagService.getFilterSchema(workspaceId);
+      res.status(200).json(schema);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
 }
