@@ -115,14 +115,15 @@ The UI doesn't need to know the difference between Manual and Dynamic for displa
 ```json
 {
   "name": "Hot Leads in Vancouver",
-  "color": "#F59E0B",
-  "type": "DYNAMIC",
-  "filters": {
-    "city": "Vancouver",
-    "status": "New Inquiry"
-  }
+  "type": "DYNAMIC", // Options: "MANUAL" | "DYNAMIC" (Default: "MANUAL")
+  "filters": { "city": "Vancouver", "status": "New Inquiry" } // Casing is automatically handled
 }
 ```
+
+> [!TIP]
+> **Automated Case-Insensitivity**: The system automatically standardizes fields like `city`, `email`, and `source` to lowercase. You can create tags using any casing (e.g., "Vancouver" or "vancouver"), and they will match correctly against leads.
+
+
 
 ### 3. Assign Manual Tag to Leads
 **URL**: `POST {{baseUrl}}/api/v1/lead/assign-tags`

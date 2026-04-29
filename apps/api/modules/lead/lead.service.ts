@@ -52,6 +52,11 @@ export class LeadService {
       }
     }
 
+    // Standardize data for high-performance case-insensitive searching
+    if (leadData.email) leadData.email = leadData.email.toLowerCase();
+    if (leadData.city) leadData.city = leadData.city.toLowerCase();
+    if (leadData.source) leadData.source = leadData.source.toLowerCase();
+
     const lead = new Lead(leadData);
     const savedLead = await lead.save();
 
@@ -98,7 +103,13 @@ export class LeadService {
       }
       
       if (tag.type === "DYNAMIC") {
-        query = { ...query, ...tag.filters };
+        const normalizedFilters = { ...tag.filters };
+        ["city", "email", "source"].forEach(field => {
+          if (typeof normalizedFilters[field] === "string") {
+            normalizedFilters[field] = normalizedFilters[field].toLowerCase();
+          }
+        });
+        query = { ...query, ...normalizedFilters };
       } else {
         query.tags = new mongoose.Types.ObjectId(tagId);
       }
@@ -112,10 +123,18 @@ export class LeadService {
 
     // virtual tag Logic 
     const dynamicTags = await Tag.find({ workspaceId, type: "DYNAMIC" }).lean();
-    const tagMatchers = dynamicTags.map(tag => ({
-      tag,
-      matches: sift(tag.filters)
-    }));
+    const tagMatchers = dynamicTags.map(tag => {
+      const normalizedFilters = { ...tag.filters };
+      ["city", "email", "source"].forEach(field => {
+        if (typeof normalizedFilters[field] === "string") {
+          normalizedFilters[field] = normalizedFilters[field].toLowerCase();
+        }
+      });
+      return {
+        tag,
+        matches: sift(normalizedFilters)
+      };
+    });
     
     return leads.map(lead => {
       const virtualTags = tagMatchers
@@ -168,7 +187,13 @@ export class LeadService {
     const virtualTags = dynamicTags
       .filter((tag) => {
         try {
-          return sift(tag.filters)(leadData);
+          const normalizedFilters = { ...tag.filters };
+          ["city", "email", "source"].forEach(field => {
+            if (typeof normalizedFilters[field] === "string") {
+              normalizedFilters[field] = normalizedFilters[field].toLowerCase();
+            }
+          });
+          return sift(normalizedFilters)(leadData);
         } catch (e) {
           return false;
         }
@@ -443,6 +468,9 @@ export class LeadService {
 
       newLeads.push({
         ...lead,
+        email: lead.email?.toLowerCase(),
+        city: lead.city?.toLowerCase(),
+        source: lead.source?.toLowerCase(),
         realtorId: realtorId,
         workspaceId: workspaceId,
         pipelineId: assignedPipelineId,
