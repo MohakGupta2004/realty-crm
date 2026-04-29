@@ -12,6 +12,7 @@ export const createLeadSchema = z.object({
     pipelineId: objectIdSchema.optional(),
     stageId: objectIdSchema.optional(),
     type: z.enum(["BUYER", "SELLER"]).optional(),
+    tags: z.array(z.string()).optional(),
 });
 
 export const updateLeadSchema = z.object({
@@ -24,6 +25,7 @@ export const updateLeadSchema = z.object({
     stageId: objectIdSchema.optional(),
     status: z.string().optional(),
     extra_fields: z.record(z.string(), z.string()).optional(),
+    tags: z.array(z.string()).optional(),
 });
 
 export const addLeadsSchema = z.object({
@@ -43,6 +45,16 @@ export const assignCampaignSchema = z.object({
     leads: z.array(objectIdSchema),
     campaignId: objectIdSchema,
     workspaceId: objectIdSchema,
+});
+
+export const assignTagsSchema = z.object({
+    leadIds: z.array(objectIdSchema),
+    tagId: objectIdSchema,
+});
+
+export const removeTagsSchema = z.object({
+    leadIds: z.array(objectIdSchema),
+    tagId: objectIdSchema,
 });
 
 export const reassignOwnerSchema = z.object({

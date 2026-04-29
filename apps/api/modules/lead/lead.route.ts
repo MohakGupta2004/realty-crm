@@ -1,5 +1,5 @@
 import express from "express";
-import { createLead, getLeads, updateLead, deleteLead, getLeadDetails, addLeads, getLeadsByCampaing, assignCampaingToLeads, getLeadEmails, getAllEmails, reassignLeadOwner } from "./lead.controller";
+import { createLead, getLeads, updateLead, deleteLead, getLeadDetails, addLeads, getLeadsByCampaing, assignCampaingToLeads, getLeadEmails, getAllEmails, reassignLeadOwner, assignTagsToLeads, removeTagsFromLeads } from "./lead.controller";
 import { validate } from "../../shared/middleware/validate";
 import {
     createLeadSchema,
@@ -9,7 +9,9 @@ import {
     leadIdParamSchema,
     workspaceIdParamSchema,
     campaignAndWorkspaceParamSchema,
-    reassignOwnerSchema
+    reassignOwnerSchema,
+    assignTagsSchema,
+    removeTagsSchema
 } from "./lead.schema";
 
 const router = express.Router();
@@ -36,5 +38,7 @@ router.delete("/details/:id", validate({ params: leadIdParamSchema }), deleteLea
 router.get("/campaign/:campaignId/workspace/:workspaceId", validate({ params: campaignAndWorkspaceParamSchema }), getLeadsByCampaing);
 router.post("/assignCampaingToLeads", validate({ body: assignCampaignSchema }), assignCampaingToLeads);
 
+router.post("/assign-tags", validate({ body: assignTagsSchema }), assignTagsToLeads);
+router.post("/remove-tags", validate({ body: removeTagsSchema }), removeTagsFromLeads);
 
 export default router;

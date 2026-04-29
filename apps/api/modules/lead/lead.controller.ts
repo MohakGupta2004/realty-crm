@@ -22,7 +22,8 @@ export async function getLeads(req: Request, res: Response) {
     try {
         const authReq = req as AuthenticatedRequest;
         const workspaceId = req.params.workspaceId as string;
-        const leads = await LeadService.getLeads(workspaceId, authReq.user.id);
+        const tagId = req.query.tagId as string | undefined;
+        const leads = await LeadService.getLeads(workspaceId, authReq.user.id, tagId);
         res.status(200).json({ leads });
     } catch (error: any) {
         res.status(500).json({ message: error.message || "Failed to fetch leads" });
@@ -163,5 +164,41 @@ export async function getLeadsByCampaing(req: Request, res: Response) {
         res.status(200).json({ leads });
     } catch (error: any) {
         res.status(400).json({ message: error.message || "Failed to fetch leads" });
+    }
+}
+
+export async function assignTagsToLeads(req: Request, res: Response) {
+    try {
+        const authReq = req as AuthenticatedRequest;
+        const userId = authReq.user.id;
+        const { leadIds, tagId } = req.body;
+        const workspaceId = req.headers["x-workspace-id"] as string;
+        
+        if (!workspaceId) {
+            return res.status(400).json({ error: "Workspace ID is required in headers" });
+        }
+
+        const updatedLeads = await LeadService.assignTagsToLeads(leadIds, tagId, userId, workspaceId);
+        res.status(200).json({ success: true, modifiedCount: updatedLeads.modifiedCount });
+    } catch (error: any) {
+        res.status(400).json({ message: error.message || "Failed to assign tags to leads" });
+    }
+}
+
+export async function removeTagsFromLeads(req: Request, res: Response) {
+    try {
+        const authReq = req as AuthenticatedRequest;
+        const userId = authReq.user.id;
+        const { leadIds, tagId } = req.body;
+        const workspaceId = req.headers["x-workspace-id"] as string;
+
+        if (!workspaceId) {
+            return res.status(400).json({ error: "Workspace ID is required in headers" });
+        }
+
+        const updatedLeads = await LeadService.removeTagsFromLeads(leadIds, tagId, userId, workspaceId);
+        res.status(200).json({ success: true, modifiedCount: updatedLeads.modifiedCount });
+    } catch (error: any) {
+        res.status(400).json({ message: error.message || "Failed to remove tags from leads" });
     }
 }
