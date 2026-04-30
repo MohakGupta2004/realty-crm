@@ -23,6 +23,7 @@ import uploadModule from "./modules/upload/upload.module";
 import trackerModule from "./modules/trackers/tracker.module";
 import paymentModule from "./modules/paymentIntegration/payment.module";
 import smsModule from "./modules/smsCampaign/sms.module";
+import tagModule from "./modules/tag/tag.module";
 import morgan from 'morgan'
 const app = express();
 
@@ -44,7 +45,7 @@ const limiter = rateLimit({
   message: { message: "Too many requests, please try again later." },
 });
 app.use(limiter);
-app.use(morgan());
+app.use(morgan('dev'));
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
@@ -75,5 +76,6 @@ app.use("/api/v1/upload", uploadModule);
 app.use("/api/v1/trackers", trackerModule);
 app.use("/api/v1/payment", paymentModule);
 app.use("/api/v1/sms", smsModule);
+app.use("/api/v1/tag", tagModule);
 
 export default app;

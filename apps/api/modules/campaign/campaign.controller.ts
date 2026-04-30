@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { CampaingService } from "./campaign.service";
+import { LeadService } from "../lead/lead.service";
 import type { AuthenticatedRequest } from "../../shared/middleware/requireAuth";
 import type { ICampaignCreate, ICampaignUpdate, ICampaignStepCreate, ILead } from "./campaign.types";
 import { CampaignBatch } from "./models/campaignBatch.model";
@@ -220,6 +221,52 @@ export const startCampaign = async (req: Request, res: Response) => {
     });
   }
 }
+
+export const enrollLeadsByTag = async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user.id;
+    const { campaignId, tagId, workspaceId } = req.body;
+
+    if (!campaignId || !tagId || !workspaceId) {
+      return res.status(400).json({
+        success: false,
+        message: "CampaignId, tagId and workspaceId are required",
+      });
+    }
+
+    // 1. Fetch leads associated with this tag (Manual or Dynamic)
+    const leads = await LeadService.getLeads(workspaceId, userId, tagId);
+
+    if (leads.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No leads found for this tag",
+      });
+    }
+
+    // 2. Format leads for campaign enrollment
+    const leadDetails: ILead[] = leads.map((lead: any) => ({
+      leadId: lead._id.toString(),
+      email: lead.email,
+      name: lead.name
+    }));
+
+    // 3. Enroll leads in the campaign
+    await CampaingService.enrollLeads(campaignId, leadDetails);
+
+    return res.status(200).json({
+      success: true,
+      message: `${leads.length} leads enrolled in campaign successfully`,
+    });
+  } catch (error: any) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to enroll leads by tag",
+    });
+  }
+};
 
 export const stopCampaign = async (req: Request, res: Response) => {
   try {

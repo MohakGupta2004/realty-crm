@@ -10,8 +10,134 @@ import { ActivityService } from "../activity/activity.service";
 import { ActivityType } from "../activity/activity.types";
 import { enqueueTask } from "../../shared/config/cloudTasks.client";
 import { logger } from "../../shared/config/logger";
+import { CampaignBatch } from "../campaign/models/campaignBatch.model";
+
+import { Webhook } from "svix";
 
 const authClient = new OAuth2Client();
+
+export async function handleResendInboundWebhook(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const payload = req.body.toString();
+    const headers = req.headers;
+
+    const svixId = headers["svix-id"] as string;
+    const svixTimestamp = headers["svix-timestamp"] as string;
+    const svixSignature = headers["svix-signature"] as string;
+
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      res.status(400).json({ message: "Missing svix headers" });
+      return;
+    }
+
+    const secret = env.RESEND_WEBHOOK_SECRET;
+    if (!secret) {
+      logger.error("RESEND_WEBHOOK_SECRET is not configured");
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+
+    const wh = new Webhook(secret);
+    let evt: any;
+
+    try {
+      evt = wh.verify(payload, {
+        "svix-id": svixId,
+        "svix-timestamp": svixTimestamp,
+        "svix-signature": svixSignature,
+      });
+    } catch (err: any) {
+      logger.error("Resend webhook verification failed", {
+        error: err.message,
+      });
+      res.status(400).json({ message: "Invalid signature" });
+      return;
+    }
+
+    const { type, data } = evt;
+
+    // Resend sends a verification or the actual email
+    if (type !== "email.received") {
+      res.status(200).send("OK");
+      return;
+    }
+
+    const inReplyTo =
+      data.headers?.["in-reply-to"] || data.headers?.["In-Reply-To"];
+    const fromEmail = data.from;
+    const subject = data.subject;
+    const body = data.text || data.html;
+
+    if (!inReplyTo && !fromEmail) {
+      logger.warn("Resend webhook received without tracking identifiers", {
+        data,
+      });
+      res.status(200).send("OK");
+      return;
+    }
+
+    // 1. Strict matching strategy (Require Thread Header)
+    if (!inReplyTo) {
+      logger.info(
+        "Resend webhook: No In-Reply-To header found. Skipping tracking to prevent incorrect attribution.",
+      );
+      res.status(200).send("OK");
+      return;
+    }
+
+    const cleanMessageId = inReplyTo.replace(/[<>]/g, "");
+    const batchMatch = await CampaignBatch.findOne({
+      "leads.messageId": cleanMessageId,
+    }).populate("campaignId");
+
+    if (batchMatch) {
+      const leadInBatch = batchMatch.leads.find(
+        (l: any) => l.messageId === cleanMessageId,
+      );
+
+      if (leadInBatch) {
+        const leadId = leadInBatch.leadId;
+        const realtorId = (batchMatch as any).campaignId?.userId;
+
+        // Update Lead status
+        await Lead.findByIdAndUpdate(leadId, { status: "Replied" });
+
+        // Save communication record
+        await CommunicationService.createCommunication({
+          leadId: leadId.toString(),
+          realtorId: realtorId?.toString() || "",
+          type: "EMAIL",
+          subject: subject || "Reply to Campaign",
+          body: body || "",
+          senderEmail: fromEmail,
+        });
+
+        // Log activity
+        await ActivityService.logActivity({
+          leadId: leadId.toString(),
+          realtorId: realtorId?.toString() || "",
+          type: ActivityType.EMAIL_RECEIVED,
+          content: `Received reply: ${subject}`,
+        });
+
+        logger.info("Resend reply tracked successfully (Strict Match)", {
+          leadId,
+          messageId: cleanMessageId,
+        });
+      }
+    }
+
+    res.status(200).send("OK");
+  } catch (error: any) {
+    logger.error("Error processing Resend inbound webhook", {
+      error: error.message,
+    });
+    res.status(200).send("OK");
+  }
+}
 
 export async function getGoogleAuthUrl(
   req: AuthenticatedRequest,

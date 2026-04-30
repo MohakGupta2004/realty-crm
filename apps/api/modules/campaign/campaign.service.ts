@@ -90,61 +90,58 @@ export class CampaingService {
   }
 
 
-  static async startCampaign(campaignId: string, leads: ILead[]) {
-
+  static async enrollLeads(campaignId: string, leads: ILead[]) {
     const steps = await CampaignStep
       .find({ campaignId })
       .sort({ stepOrder: 1 })
       .lean();
 
     const campaign = await Campaing.findById(campaignId);
-
     if (!campaign) {
       throw new Error("Campaign not found");
     }
 
-    // 1. Flip any paused batches to pending (resume scenario)
-    await CampaignBatch.updateMany(
-      { campaignId, status: "paused" },
-      { $set: { status: "pending" } }
-    );
-
     const BATCH_SIZE = 50;
+    const enrollPromises = [];
 
     for (const step of steps) {
-      // 2. Check if this step already has batches
-      const stepBatchesCount = await CampaignBatch.countDocuments({ 
-        campaignId, 
-        stepId: step._id 
-      });
+      // Calculate runAt based on step delay
+      const runAt = new Date(Date.now() + (step.delayDays || 0) * 86400000);
 
-      if (stepBatchesCount === 0) {
-        // 3. Create batches ONLY if they don't exist for this step
-        const runAt = new Date(
-          Date.now() + step.delayDays * 86400000
-        );
-
-        const newBatches = [];
-        for (let i = 0; i < leads.length; i += BATCH_SIZE) {
-          newBatches.push({
-            campaignId,
-            stepId: step._id,
-            leads: leads.slice(i, i + BATCH_SIZE),
-            runAt,
-            status: "pending"
-          });
-        }
-
-        if (newBatches.length > 0) {
-          await CampaignBatch.insertMany(newBatches);
-        }
+      for (let i = 0; i < leads.length; i += BATCH_SIZE) {
+        const batchLeads = leads.slice(i, i + BATCH_SIZE);
+        enrollPromises.push(CampaignBatch.create({
+          campaignId,
+          stepId: step._id,
+          leads: batchLeads,
+          runAt,
+          status: campaign.status === "running" ? "pending" : "paused"
+        }));
       }
     }
 
+    await Promise.all(enrollPromises);
+  }
+
+  static async startCampaign(campaignId: string, leads: ILead[]) {
+    const campaign = await Campaing.findById(campaignId);
+    if (!campaign) {
+      throw new Error("Campaign not found");
+    }
+
+    // 1. Enroll the initial batch of leads
+    await this.enrollLeads(campaignId, leads);
+
+    // 2. Set campaign to running
     await Campaing.findByIdAndUpdate(campaignId, {
       status: "running"
     });
 
+    // 3. Ensure any previously paused batches for this campaign are resumed
+    await CampaignBatch.updateMany(
+      { campaignId, status: "paused" },
+      { $set: { status: "pending" } }
+    );
   }
 
   static async stopCampaign(campaignId: string) {

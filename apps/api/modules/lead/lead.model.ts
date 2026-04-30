@@ -57,7 +57,11 @@ const leadSchema = new mongoose.Schema<ILead>({
     extra_fields: {
         type: mongoose.Schema.Types.Mixed,
         default: {}
-    }
+    },
+    tags: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Tag"
+    }]
 }, {
     timestamps: true,
 });
@@ -65,5 +69,8 @@ const leadSchema = new mongoose.Schema<ILead>({
 leadSchema.index({ workspaceId: 1, realtorId: 1 });
 leadSchema.index({ campaignId: 1, realtorId: 1, workspaceId: 1 });
 leadSchema.index({ workspaceId: 1, email: 1 }, { unique: true });
+leadSchema.index({ tags: 1 });
+leadSchema.index({ workspaceId: 1, city: 1 });
+leadSchema.index({ workspaceId: 1, status: 1 });
 
 export const Lead = mongoose.model<ILead>("Lead", leadSchema);
