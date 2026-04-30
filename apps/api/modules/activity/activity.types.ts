@@ -9,6 +9,7 @@ export enum ActivityType {
     TASK_COMPLETED = "TASK_COMPLETED",
     STATUS_CHANGED = "STATUS_CHANGED",
     STAGE_CHANGED = "STAGE_CHANGED",
+    EMAIL_RECEIVED = "EMAIL_RECEIVED",
 }
 
 export interface IActivity {

@@ -59,6 +59,8 @@ export const env = {
 
   // Email (Resend)
   RESEND_API_KEY: process.env.RESEND_API_KEY,
+  RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
+  REPLY_TO_EMAIL: process.env.REPLY_TO_EMAIL,
   EMAIL_FROM: process.env.EMAIL_FROM || "CRM <noreply@yourdomain.com>",
 
   // Twilio
@@ -104,6 +106,8 @@ const REQUIRED_VARS = [
 const WARNING_VARS = [
   "OPENAI_API_KEY",
   "RESEND_API_KEY",
+  "RESEND_WEBHOOK_SECRET",
+  "REPLY_TO_EMAIL",
   "EMAIL_FROM",
   "TWILIO_ACCOUNT_SID",
   "TWILIO_AUTH_TOKEN",
