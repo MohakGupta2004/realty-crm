@@ -19,6 +19,9 @@ import {
   CheckCircle2,
   History as HistoryIcon,
   Loader2,
+  Search,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1035,6 +1038,7 @@ function AddLeadsToCampaignModal({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -1055,10 +1059,36 @@ function AddLeadsToCampaignModal({
 
   const availableLeads = allLeads.filter((l) => !existingLeadIds.has(l._id));
 
+  const filteredLeads = (() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return availableLeads;
+    return availableLeads.filter((l) => {
+      const hay = [l.name, l.email, l.phone, l.city, l.source, l.status]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  })();
+
+  const allFilteredSelected =
+    filteredLeads.length > 0 &&
+    filteredLeads.every((l) => selectedIds.has(l._id));
+
   const toggleLead = (id: string) => {
     const next = new Set(selectedIds);
     if (next.has(id)) next.delete(id);
     else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const next = new Set(selectedIds);
+    if (allFilteredSelected) {
+      filteredLeads.forEach((l) => next.delete(l._id));
+    } else {
+      filteredLeads.forEach((l) => next.add(l._id));
+    }
     setSelectedIds(next);
   };
 
@@ -1105,6 +1135,52 @@ function AddLeadsToCampaignModal({
           </button>
         </div>
 
+        {/* Search + select-all toolbar */}
+        <div className="mb-3 flex flex-col gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, email, phone, city..."
+              className="h-8 w-full rounded-md border border-white/[0.08] bg-white/[0.04] pl-8 pr-7 text-xs text-foreground placeholder:text-muted-foreground/50 outline-none transition-colors focus:border-white/[0.16] focus:bg-white/[0.06]"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground/60 transition-colors hover:bg-white/[0.08] hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>
+              {filteredLeads.length} of {availableLeads.length} available
+              {selectedIds.size > 0 && (
+                <span className="ml-2 text-blue-400">· {selectedIds.size} selected</span>
+              )}
+            </span>
+            <button
+              onClick={toggleSelectAllFiltered}
+              disabled={filteredLeads.length === 0}
+              className="flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors hover:bg-white/[0.06] disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              {allFilteredSelected ? (
+                <CheckSquare className="h-3 w-3 text-blue-400" />
+              ) : (
+                <Square className="h-3 w-3" />
+              )}
+              {allFilteredSelected ? "Deselect all" : "Select all"}
+              {search && filteredLeads.length > 0 && (
+                <span className="text-muted-foreground/60">({filteredLeads.length})</span>
+              )}
+            </button>
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto min-h-0 mb-4 space-y-2">
           {loading ? (
             <p className="text-xs text-muted-foreground text-center py-4">
@@ -1114,8 +1190,12 @@ function AddLeadsToCampaignModal({
             <p className="text-xs text-muted-foreground text-center py-4">
               No available leads to add.
             </p>
+          ) : filteredLeads.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              No leads match "{search}".
+            </p>
           ) : (
-            availableLeads.map((lead) => (
+            filteredLeads.map((lead) => (
               <label
                 key={lead._id}
                 className={`flex items-center gap-3 p-2.5 rounded-md border cursor-pointer transition-colors ${

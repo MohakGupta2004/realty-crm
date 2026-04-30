@@ -25,4 +25,5 @@ export const workspaceIdParamSchema = z.object({
 
 export const leadIdParamSchema = z.object({
   leadId: objectIdSchema,
+  workspaceId: objectIdSchema,
 });

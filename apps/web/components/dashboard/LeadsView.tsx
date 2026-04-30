@@ -27,6 +27,9 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
+  Sparkles,
+  Settings2,
+  Tags as TagsIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { ContentLoader } from "@/components/ui/content-loader";
+import TagsManager, { type TagDef, hexToRgba } from "./TagsManager";
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface Pipeline {
@@ -70,6 +74,7 @@ export interface Lead {
     email: string;
   };
   extra_fields?: Record<string, string>;
+  tags?: TagDef[];
   createdAt: string;
   updatedAt: string;
 }
@@ -199,6 +204,7 @@ const TABLE_COLUMNS = [
   { key: "city", label: "City", icon: Globe }, // Use Globe for City/Location
   { key: "realtor", label: "Agent", icon: Users }, // New column for OWNER view
   { key: "status", label: "Status", icon: Tag },
+  { key: "tags", label: "Tags", icon: TagsIcon },
   { key: "source", label: "Source", icon: Globe },
   { key: "createdAt", label: "Created", icon: Clock },
 ];
@@ -235,6 +241,13 @@ export default function LeadsView({
   const [cityFilter, setCityFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
 
+  // tags
+  const [tags, setTags] = useState<TagDef[]>([]);
+  const [activeTagId, setActiveTagId] = useState<string | null>(null);
+  const [showTagsManager, setShowTagsManager] = useState(false);
+  const [showAssignTagMenu, setShowAssignTagMenu] = useState(false);
+  const [assigningTag, setAssigningTag] = useState(false);
+
   // new-lead form
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -256,7 +269,10 @@ export default function LeadsView({
   const fetchLeads = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await api(`/lead/workspace/${workspaceId}`);
+      const url = activeTagId
+        ? `/lead/workspace/${workspaceId}?tagId=${activeTagId}`
+        : `/lead/workspace/${workspaceId}`;
+      const res = await api(url);
       if (res.ok) {
         const data = await res.json();
         setLeads(data.leads || []);
@@ -265,6 +281,18 @@ export default function LeadsView({
       /* silent */
     } finally {
       setLoading(false);
+    }
+  }, [workspaceId, activeTagId]);
+
+  const fetchTags = useCallback(async () => {
+    if (!workspaceId) return;
+    try {
+      const res = await api("/tag/list", {
+        headers: { "x-workspace-id": workspaceId },
+      });
+      if (res.ok) setTags(await res.json());
+    } catch {
+      /* silent */
     }
   }, [workspaceId]);
 
@@ -299,7 +327,8 @@ export default function LeadsView({
     fetchLeads();
     fetchPipelines();
     fetchCurrentUser();
-  }, [fetchLeads, fetchPipelines, fetchCurrentUser]);
+    fetchTags();
+  }, [fetchLeads, fetchPipelines, fetchCurrentUser, fetchTags]);
 
   useEffect(() => {
     if (!workspaceId || !isOwner) return;
@@ -544,6 +573,31 @@ export default function LeadsView({
     setSelectedLeadIds(next);
   }
 
+  async function handleBulkAssignTag(tagId: string) {
+    if (selectedLeadIds.size === 0) return;
+    setAssigningTag(true);
+    try {
+      const res = await api("/lead/assign-tags", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-workspace-id": workspaceId,
+        },
+        body: JSON.stringify({
+          leadIds: Array.from(selectedLeadIds),
+          tagId,
+        }),
+      });
+      if (res.ok) {
+        setShowAssignTagMenu(false);
+        setSelectedLeadIds(new Set());
+        fetchLeads();
+      }
+    } finally {
+      setAssigningTag(false);
+    }
+  }
+
   async function handleBulkDelete() {
     if (
       !confirm(`Are you sure you want to delete ${selectedLeadIds.size} leads?`)
@@ -582,6 +636,17 @@ export default function LeadsView({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {selectedLeadIds.size > 0 && (
+              <AssignTagButton
+                tags={tags}
+                open={showAssignTagMenu}
+                onOpen={() => setShowAssignTagMenu(true)}
+                onClose={() => setShowAssignTagMenu(false)}
+                onAssign={handleBulkAssignTag}
+                count={selectedLeadIds.size}
+                loading={assigningTag}
+              />
+            )}
+            {selectedLeadIds.size > 0 && (
               <Button
                 size="sm"
                 variant="destructive"
@@ -596,6 +661,15 @@ export default function LeadsView({
                 )}
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowTagsManager(true)}
+              className="h-7 gap-1.5 rounded-md px-3 text-xs border-white/[0.08] hover:bg-white/[0.04]"
+            >
+              <TagsIcon className="h-3 w-3" />
+              <span className="hidden xs:inline">Tags</span>
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -696,6 +770,15 @@ export default function LeadsView({
               />
             </div>
           )}
+
+          {tags.length > 0 && (
+            <TagPillBar
+              tags={tags}
+              activeTagId={activeTagId}
+              onSelect={(id) => setActiveTagId(id)}
+              onManage={() => setShowTagsManager(true)}
+            />
+          )}
         </div>
 
         {/* Table */}
@@ -733,7 +816,7 @@ export default function LeadsView({
               {/* Loading State */}
               {loading && (
                 <tr>
-                  <td colSpan={isOwner ? 9 : 8} className="py-12">
+                  <td colSpan={isOwner ? 10 : 9} className="py-12">
                     <ContentLoader loading={loading} text="Fetching leads..." />
                   </td>
                 </tr>
@@ -893,6 +976,20 @@ export default function LeadsView({
                       )}
                     </td>
 
+                    {/* Tags */}
+                    <td
+                      className="px-4 py-2.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <TagsCell
+                        tags={lead.tags || []}
+                        leadId={lead._id}
+                        workspaceId={workspaceId}
+                        canEdit={canEdit}
+                        onChanged={fetchLeads}
+                      />
+                    </td>
+
                     {/* Source */}
                     <td className="px-4 py-2.5">
                       <EditableTextCell
@@ -924,7 +1021,7 @@ export default function LeadsView({
 
               {/* ── "+ Add New" row — appears BELOW existing rows ─── */}
               <tr>
-                <td colSpan={isOwner ? 9 : 8}>
+                <td colSpan={isOwner ? 10 : 9}>
                   <button
                     onClick={() => setShowNewForm(true)}
                     className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] text-muted-foreground/60 transition-colors hover:bg-white/[0.02] hover:text-muted-foreground"
@@ -941,7 +1038,7 @@ export default function LeadsView({
                 filteredLeads.length === 0 && (
                   <tr>
                     <td
-                      colSpan={isOwner ? 9 : 8}
+                      colSpan={isOwner ? 10 : 9}
                       className="px-4 py-10 text-center"
                     >
                       <p className="text-sm text-muted-foreground">
@@ -960,7 +1057,7 @@ export default function LeadsView({
               {/* Empty state */}
               {!loading && leads.length === 0 && !showNewForm && (
                 <tr>
-                  <td colSpan={isOwner ? 9 : 8} className="px-4 py-16 text-center">
+                  <td colSpan={isOwner ? 10 : 9} className="px-4 py-16 text-center">
                     {loading ? (
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
@@ -1114,6 +1211,17 @@ export default function LeadsView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Tags Manager Modal ──────────────────────────────────────── */}
+      <TagsManager
+        open={showTagsManager}
+        onClose={() => setShowTagsManager(false)}
+        workspaceId={workspaceId}
+        onChanged={() => {
+          fetchTags();
+          fetchLeads();
+        }}
+      />
     </div>
   );
 }
@@ -2896,6 +3004,291 @@ export function TimelineTab({
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// TAG SUB-COMPONENTS
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Tag pill bar (filters leads by clicking a tag) ────────────────────
+function TagPillBar({
+  tags,
+  activeTagId,
+  onSelect,
+  onManage,
+}: {
+  tags: TagDef[];
+  activeTagId: string | null;
+  onSelect: (id: string | null) => void;
+  onManage: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 overflow-x-auto pt-1 scrollbar-thin scrollbar-thumb-white/10">
+      <button
+        onClick={() => onSelect(null)}
+        className={`flex h-6 shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] transition-all ${
+          activeTagId === null
+            ? "bg-white/[0.10] text-foreground border border-white/[0.14]"
+            : "bg-transparent text-muted-foreground border border-white/[0.06] hover:bg-white/[0.04] hover:text-foreground"
+        }`}
+      >
+        All
+      </button>
+      {tags.map((tag) => {
+        const active = activeTagId === tag._id;
+        return (
+          <button
+            key={tag._id}
+            onClick={() => onSelect(active ? null : tag._id)}
+            className={`flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium transition-all ${
+              active ? "ring-1" : "opacity-80 hover:opacity-100"
+            }`}
+            style={{
+              backgroundColor: hexToRgba(tag.color, active ? 0.22 : 0.12),
+              color: tag.color,
+              boxShadow: active ? `inset 0 0 0 1px ${hexToRgba(tag.color, 0.5)}` : undefined,
+            }}
+          >
+            {tag.type === "DYNAMIC" ? (
+              <Sparkles className="h-2.5 w-2.5" />
+            ) : (
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: tag.color }}
+              />
+            )}
+            <span className="truncate max-w-[120px]">{tag.name}</span>
+          </button>
+        );
+      })}
+      <button
+        onClick={onManage}
+        className="ml-auto shrink-0 flex h-6 items-center gap-1 rounded-full border border-dashed border-white/[0.08] px-2.5 text-[11px] text-muted-foreground transition-colors hover:border-white/[0.14] hover:bg-white/[0.04] hover:text-foreground"
+        title="Manage tags"
+      >
+        <Settings2 className="h-2.5 w-2.5" />
+        <span>Manage</span>
+      </button>
+    </div>
+  );
+}
+
+// ── Assign-tag dropdown button (bulk action) ──────────────────────────
+function AssignTagButton({
+  tags,
+  open,
+  onOpen,
+  onClose,
+  onAssign,
+  count,
+  loading,
+}: {
+  tags: TagDef[];
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onAssign: (tagId: string) => void;
+  count: number;
+  loading: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open, onClose]);
+
+  const manualTags = tags.filter((t) => t.type === "MANUAL");
+
+  return (
+    <div ref={ref} className="relative">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => (open ? onClose() : onOpen())}
+        disabled={loading}
+        className="h-7 gap-1.5 rounded-md px-3 text-xs border-white/[0.08] hover:bg-white/[0.04]"
+      >
+        {loading ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <TagsIcon className="h-3 w-3" />
+        )}
+        Assign tag ({count})
+        <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+      </Button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 max-h-72 w-56 overflow-auto rounded-lg border border-white/[0.08] bg-[#1a1a1a] py-1 shadow-xl">
+          {manualTags.length === 0 ? (
+            <p className="px-3 py-3 text-center text-[11px] text-muted-foreground">
+              No manual tags. Create one first.
+            </p>
+          ) : (
+            manualTags.map((tag) => (
+              <button
+                key={tag._id}
+                onClick={() => onAssign(tag._id)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] transition-colors hover:bg-white/[0.06]"
+              >
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: tag.color }}
+                />
+                <span className="truncate text-left">{tag.name}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Lead row tags cell — shows badges + add/remove popover ────────────
+function TagsCell({
+  tags,
+  leadId,
+  workspaceId,
+  canEdit,
+  onChanged,
+}: {
+  tags: TagDef[];
+  leadId: string;
+  workspaceId: string;
+  canEdit: boolean;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [allTags, setAllTags] = useState<TagDef[]>([]);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !workspaceId) return;
+    api("/tag/list", { headers: { "x-workspace-id": workspaceId } })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setAllTags)
+      .catch(() => {});
+  }, [open, workspaceId]);
+
+  const assignedIds = new Set(tags.map((t) => t._id));
+
+  async function toggleTag(tag: TagDef) {
+    if (tag.type === "DYNAMIC") return; // virtual — cannot manually toggle
+    setBusy(true);
+    try {
+      const path = assignedIds.has(tag._id) ? "/lead/remove-tags" : "/lead/assign-tags";
+      const res = await api(path, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-workspace-id": workspaceId,
+        },
+        body: JSON.stringify({ leadIds: [leadId], tagId: tag._id }),
+      });
+      if (res.ok) onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => canEdit && setOpen((o) => !o)}
+        className={`flex flex-wrap items-center gap-1 min-h-[22px] ${
+          canEdit ? "cursor-pointer" : "cursor-default"
+        }`}
+        disabled={!canEdit}
+      >
+        {tags.length === 0 ? (
+          canEdit ? (
+            <span className="flex items-center gap-1 rounded-md border border-dashed border-white/[0.08] px-1.5 py-0.5 text-[10px] text-muted-foreground/60 transition-colors hover:border-white/[0.16] hover:text-muted-foreground">
+              <Plus className="h-2.5 w-2.5" />
+              tag
+            </span>
+          ) : (
+            <span className="text-muted-foreground/30 text-[12px]">—</span>
+          )
+        ) : (
+          tags.slice(0, 3).map((tag) => (
+            <span
+              key={tag._id}
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+              style={{
+                backgroundColor: hexToRgba(tag.color, 0.18),
+                color: tag.color,
+              }}
+              title={tag.type === "DYNAMIC" ? `${tag.name} (Smart View)` : tag.name}
+            >
+              {tag.type === "DYNAMIC" && <Sparkles className="h-2 w-2" />}
+              <span className="truncate max-w-[80px]">{tag.name}</span>
+            </span>
+          ))
+        )}
+        {tags.length > 3 && (
+          <span className="text-[10px] text-muted-foreground/60">
+            +{tags.length - 3}
+          </span>
+        )}
+      </button>
+
+      {open && canEdit && (
+        <div className="absolute left-0 top-full z-50 mt-1 max-h-72 w-56 overflow-auto rounded-lg border border-white/[0.08] bg-[#1a1a1a] py-1 shadow-xl">
+          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">
+            Toggle manual tags
+          </div>
+          {allTags.filter((t) => t.type === "MANUAL").length === 0 ? (
+            <p className="px-3 py-3 text-center text-[11px] text-muted-foreground">
+              No manual tags yet.
+            </p>
+          ) : (
+            allTags
+              .filter((t) => t.type === "MANUAL")
+              .map((tag) => {
+                const checked = assignedIds.has(tag._id);
+                return (
+                  <button
+                    key={tag._id}
+                    onClick={() => toggleTag(tag)}
+                    disabled={busy}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] transition-colors hover:bg-white/[0.06]"
+                  >
+                    <span
+                      className={`flex h-3.5 w-3.5 items-center justify-center rounded border ${
+                        checked
+                          ? "border-transparent"
+                          : "border-white/[0.16]"
+                      }`}
+                      style={
+                        checked ? { backgroundColor: tag.color } : undefined
+                      }
+                    >
+                      {checked && <Check className="h-2.5 w-2.5 text-white" />}
+                    </span>
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ backgroundColor: tag.color }}
+                    />
+                    <span className="truncate text-left flex-1">{tag.name}</span>
+                  </button>
+                );
+              })
+          )}
+        </div>
+      )}
     </div>
   );
 }
