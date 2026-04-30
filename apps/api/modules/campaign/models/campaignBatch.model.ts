@@ -4,7 +4,10 @@ import mongoose from "mongoose";
 
 const campaignBatchSchema = new mongoose.Schema({
 
-    campaignId: mongoose.Schema.Types.ObjectId,
+    campaignId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Campaing"
+    },
 
     stepId: {
         type: mongoose.Schema.Types.ObjectId,

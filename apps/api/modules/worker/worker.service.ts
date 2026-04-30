@@ -2,6 +2,8 @@ import { Resend } from "resend";
 import { CampaignBatch } from "../campaign/models/campaignBatch.model";
 import { CampaignStep } from "../campaign/models/campaignStep.model";
 import { Lead } from "../lead/lead.model";
+import { Campaing } from "../campaign/models/campaign.model";
+import { User } from "../user/user.model";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -13,18 +15,24 @@ export class WorkerService {
             { _id: batchId, status: "queued" },
             { $set: { status: "processing" } },
             { new: true }
-        );
+        ).populate([
+                { path: "stepId", select: "subject body" },
+                {
+                    path: "campaignId",
+                    select: "userId",
+                    populate: { path: "userId", select: "email" }
+                }
+            ])
+            .lean();
 
         if (!batchDoc) return;
 
-        const step = await CampaignStep
-            .findById(batchDoc.stepId)
-            .select("subject body")
-            .lean();
-
+        const step = batchDoc.stepId as any;
         if (!step) {
             throw new Error(`Campaign step not found for batch id: ${batchId}`);
         }
+
+        const userEmail = (batchDoc.campaignId as any)?.userId?.email;
 
         const leads = batchDoc.leads || [];
 
@@ -49,7 +57,11 @@ export class WorkerService {
                     from: process.env.EMAIL_FROM || "CRM <noreply@yourdomain.com>",
                     to: [lead.email],
                     subject: step.subject,
-                    html: compiledHtml
+                    html: compiledHtml,
+                    ...(userEmail && {
+                        cc: [userEmail],
+                        reply_to: userEmail
+                    })
                 };
             });
 
