@@ -17,7 +17,8 @@ import {
   unsubscribeEmail,
   getTemplates,
   createTemplate,
-  deleteTemplate
+  deleteTemplate,
+  enrollLeadsByTag
 } from "./campaign.controller";
 import requireAuth from "../../shared/middleware/requireAuth";
 import requirePro from "../../shared/middleware/requirePro";
@@ -55,6 +56,7 @@ router.post("/create", validate({ body: createCampaignSchema }), createCampaing)
 router.put("/update", validate({ body: updateCampaignSchema }), updateCampaing);
 router.post('/step/create', validate({ body: createCampaignStepSchema }), createCampaignStep);
 router.post('/start', validate({ body: startCampaignSchema }), startCampaign);
+router.post('/enroll-tag', enrollLeadsByTag);
 router.post('/stop', validate({ body: campaignIdParamSchema }), stopCampaign);
 router.put('/step/:stepId', validate({ params: stepIdParamSchema, body: updateCampaignStepSchema }), updateCampaignStep);
 router.delete('/step/:stepId', validate({ params: stepIdParamSchema }), deleteCampaignStep);

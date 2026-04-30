@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import {
     getGoogleAuthUrl,
     getIntegrationStatus,
@@ -6,6 +6,7 @@ import {
     sendEmailToLead,
     processWebhookWorker,
     renewWatches,
+    handleResendInboundWebhook,
 } from "./emailIntegration.controller";
 import requireAuth from "../../shared/middleware/requireAuth";
 import requirePro from "../../shared/middleware/requirePro";
@@ -18,6 +19,7 @@ import { sendEmailToLeadSchema, webhookReceiveSchema, webhookWorkerSchema } from
 router.post("/webhook/receive", validate({ body: webhookReceiveSchema }), receiveWebhook as any);
 router.post("/webhook/worker", validate({ body: webhookWorkerSchema }), processWebhookWorker as any);
 router.post("/webhook/renew-watches", renewWatches as any);
+router.post("/webhook/resend-inbound", express.raw({ type: "application/json" }), handleResendInboundWebhook as any);
 
 // ── Protected routes (authenticated via user JWT) ──
 router.use(requireAuth);

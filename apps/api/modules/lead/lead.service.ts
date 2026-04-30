@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Lead } from "./lead.model";
 import type { ILeadCreate, IleadOverView, ILeadUpdate } from "./lead.types";
 import { Membership } from "../memberships/memberships.model";
@@ -9,6 +10,8 @@ import { ActivityType } from "../activity/activity.types";
 import { EmailHistory } from "../emailIntegration/emailHistory.model";
 import { Communication } from "../communication/communication.model";
 import { SMS_Service } from "../smsCampaign/services/sms.service";
+import { Tag } from "../tag/tag.model";
+import sift from "sift";
 
 export class LeadService {
   static async createLead(leadData: ILeadCreate, hasSMSCampaignEnabled: boolean = false) {
@@ -49,6 +52,11 @@ export class LeadService {
       }
     }
 
+    // Standardize data for high-performance case-insensitive searching
+    if (leadData.email) leadData.email = leadData.email.toLowerCase();
+    if (leadData.city) leadData.city = leadData.city.toLowerCase();
+    if (leadData.source) leadData.source = leadData.source.toLowerCase();
+
     const lead = new Lead(leadData);
     const savedLead = await lead.save();
 
@@ -69,7 +77,7 @@ export class LeadService {
     return savedLead;
   }
 
-  static async getLeads(workspaceId: string, realtorId: string) {
+  static async getLeads(workspaceId: string, realtorId: string, tagId?: string) {
     const membership = await Membership.findOne({
       workspace: workspaceId,
       user: realtorId,
@@ -79,42 +87,122 @@ export class LeadService {
       throw new Error("You are not a member of this workspace");
     }
     const roleInWorkspace = membership.role;
-    if (roleInWorkspace === "OWNER") {
-      return await Lead.find({ workspaceId })
-        .populate("stageId", "colorIndex name")
-        .populate("realtorId", "name email")
-        .lean();
+    
+    let query: any = { workspaceId: new mongoose.Types.ObjectId(workspaceId) };
+    if (roleInWorkspace !== "OWNER") {
+      query.realtorId = new mongoose.Types.ObjectId(realtorId);
     }
-    return await Lead.find({ workspaceId, realtorId })
+
+    if (tagId) {
+      const tag = await Tag.findOne({ 
+        _id: new mongoose.Types.ObjectId(tagId), 
+        workspaceId: new mongoose.Types.ObjectId(workspaceId) 
+      }).lean();
+      if (!tag) {
+        throw new Error("Tag not found");
+      }
+      
+      if (tag.type === "DYNAMIC") {
+        const normalizedFilters = { ...tag.filters };
+        ["city", "email", "source"].forEach(field => {
+          if (typeof normalizedFilters[field] === "string") {
+            normalizedFilters[field] = normalizedFilters[field].toLowerCase();
+          }
+        });
+        query = { ...query, ...normalizedFilters };
+      } else {
+        query.tags = new mongoose.Types.ObjectId(tagId);
+      }
+    }
+
+    const leads = await Lead.find(query)
       .populate("stageId", "colorIndex name")
       .populate("realtorId", "name email")
+      .populate("tags", "name color type")
       .lean();
+
+    // virtual tag Logic 
+    const dynamicTags = await Tag.find({ workspaceId, type: "DYNAMIC" }).lean();
+    const tagMatchers = dynamicTags.map(tag => {
+      const normalizedFilters = { ...tag.filters };
+      ["city", "email", "source"].forEach(field => {
+        if (typeof normalizedFilters[field] === "string") {
+          normalizedFilters[field] = normalizedFilters[field].toLowerCase();
+        }
+      });
+      return {
+        tag,
+        matches: sift(normalizedFilters)
+      };
+    });
+    
+    return leads.map(lead => {
+      const virtualTags = tagMatchers
+        .filter(m => {
+          try { return m.matches(lead); } catch { return false; }
+        })
+        .map(m => m.tag);
+      
+      return {
+        ...lead,
+        tags: [...(lead.tags || []), ...virtualTags]
+      };
+    });
   }
 
   static async getLeadDetails(realtorId: string, leadId: string) {
     const lead = await Lead.findById(leadId).lean();
     if (!lead) return null;
 
+    let hasAccess = false;
     if (lead.realtorId.toString() === realtorId) {
-      return await Lead.findById(leadId)
-        .populate("stageId", "colorIndex name")
-        .populate("realtorId", "name email")
-        .lean();
+      hasAccess = true;
+    } else {
+      const membership = await Membership.findOne({
+        workspace: lead.workspaceId,
+        user: realtorId,
+        isRemoved: false,
+      });
+      if (membership?.role === "OWNER") {
+        hasAccess = true;
+      }
     }
 
-    const membership = await Membership.findOne({
-      workspace: lead.workspaceId,
-      user: realtorId,
-      isRemoved: false,
-    });
-    if (membership?.role === "OWNER") {
-      return await Lead.findById(leadId)
-        .populate("stageId", "colorIndex name")
-        .populate("realtorId", "name email")
-        .lean();
-    }
+    if (!hasAccess) return null;
 
-    return null;
+    const leadData = await Lead.findById(leadId)
+      .populate("stageId", "colorIndex name")
+      .populate("realtorId", "name email")
+      .populate("tags", "name color type")
+      .lean();
+
+    if (!leadData) return null;
+
+    // virtual tag (same as getLeads)
+    const dynamicTags = await Tag.find({
+      workspaceId: leadData.workspaceId,
+      type: "DYNAMIC",
+    }).lean();
+
+    const virtualTags = dynamicTags
+      .filter((tag) => {
+        try {
+          const normalizedFilters = { ...tag.filters };
+          ["city", "email", "source"].forEach(field => {
+            if (typeof normalizedFilters[field] === "string") {
+              normalizedFilters[field] = normalizedFilters[field].toLowerCase();
+            }
+          });
+          return sift(normalizedFilters)(leadData);
+        } catch (e) {
+          return false;
+        }
+      })
+    
+    return {
+      ...leadData,
+      tags: [...(leadData.tags || []), ...virtualTags],
+    };
   }
 
   static async getLeadEmails(realtorId: string, leadId: string) {
@@ -380,6 +468,9 @@ export class LeadService {
 
       newLeads.push({
         ...lead,
+        email: lead.email?.toLowerCase(),
+        city: lead.city?.toLowerCase(),
+        source: lead.source?.toLowerCase(),
         realtorId: realtorId,
         workspaceId: workspaceId,
         pipelineId: assignedPipelineId,
@@ -492,5 +583,64 @@ export class LeadService {
     });
 
     return leadsWithTracking;
+  }
+
+  static async assignTagsToLeads(
+    leadIds: string[],
+    tagId: string,
+    realtorId: string,
+    workspaceId: string
+  ) {
+    const tag = await Tag.findOne({ _id: tagId, workspaceId }).lean();
+    if (!tag) {
+      throw new Error("Tag not found");
+    }
+    if (tag.type === "DYNAMIC") {
+      throw new Error("Cannot manually assign dynamic tags to leads");
+    }
+
+    const membership = await Membership.findOne({
+      workspace: workspaceId,
+      user: realtorId,
+      isRemoved: false,
+    });
+    if (!membership) {
+      throw new Error("You are not a member of this workspace");
+    }
+
+    let query: any = { _id: { $in: leadIds }, workspaceId };
+    if (membership.role !== "OWNER") {
+      query.realtorId = realtorId;
+    }
+
+    return await Lead.updateMany(query, { $addToSet: { tags: tagId } });
+  }
+
+  static async removeTagsFromLeads(
+    leadIds: string[],
+    tagId: string,
+    realtorId: string,
+    workspaceId: string
+  ) {
+    const tag = await Tag.findOne({ _id: tagId, workspaceId }).lean();
+    if (!tag) {
+      throw new Error("Tag not found");
+    }
+
+    const membership = await Membership.findOne({
+      workspace: workspaceId,
+      user: realtorId,
+      isRemoved: false,
+    });
+    if (!membership) {
+      throw new Error("You are not a member of this workspace");
+    }
+
+    let query: any = { _id: { $in: leadIds }, workspaceId };
+    if (membership.role !== "OWNER") {
+      query.realtorId = realtorId;
+    }
+
+    return await Lead.updateMany(query, { $pull: { tags: tagId } });
   }
 }

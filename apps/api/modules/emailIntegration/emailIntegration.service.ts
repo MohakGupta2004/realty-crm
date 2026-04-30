@@ -5,6 +5,7 @@ import { EmailIntegration } from "./emailIntegration.model";
 import type { Types } from "mongoose";
 import { redisClient } from "../../shared/config/redis.client";
 import { logger } from "../../shared/config/logger";
+import { User } from "../user/user.model";
 
 const REDIS_TTL = 3600;
 const REDIS_KEY_PREFIX = "email_integration:";
@@ -209,6 +210,16 @@ class EmailIntegrationService {
     const auth = await this.getClientForUser(userId);
     const gmail = google.gmail({ version: "v1", auth });
 
+    const UserData = await User.findById(userId);
+    if (!UserData) {
+      throw new Error("User not found");
+    }
+    const signature = UserData.signatureImageUrl;
+
+    const updatedBody = signature
+      ? `${body}<br><br><img src="${signature}" alt="Signature" style="max-width: 200px; height: auto; display: block; margin-top: 12px; border: 0;">`
+      : body;
+
     const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString("base64")}?=`;
     const messageParts = [
       `To: ${to}`,
@@ -216,7 +227,7 @@ class EmailIntegrationService {
       "MIME-Version: 1.0",
       `Subject: ${utf8Subject}`,
       "",
-      body,
+      updatedBody,
     ];
 
     const message = messageParts.join("\n");

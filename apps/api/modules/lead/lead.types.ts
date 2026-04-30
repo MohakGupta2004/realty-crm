@@ -15,6 +15,7 @@ export interface ILead {
     isUnsubscribed?: boolean;
     unsubscribedAt?: Date;
     extra_fields?: Record<string, string>;
+    tags?: Types.ObjectId[] | string[];
 }
 
 export interface ILeadCreate {
@@ -30,6 +31,7 @@ export interface ILeadCreate {
     campaignId?: Types.ObjectId | string;
     type?: "BUYER" | "SELLER";
     status?: string;
+    tags?: Types.ObjectId[] | string[];
 }
 
 export interface IleadOverView {
@@ -50,4 +52,5 @@ export interface ILeadUpdate {
     stageId?: Types.ObjectId | string;
     status?: string;
     extra_fields?: Record<string, string>;
+    tags?: Types.ObjectId[] | string[];
 }
