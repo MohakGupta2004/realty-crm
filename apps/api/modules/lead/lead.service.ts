@@ -103,13 +103,7 @@ export class LeadService {
       }
       
       if (tag.type === "DYNAMIC") {
-        const normalizedFilters = { ...tag.filters };
-        ["city", "email", "source"].forEach(field => {
-          if (typeof normalizedFilters[field] === "string") {
-            normalizedFilters[field] = normalizedFilters[field].toLowerCase();
-          }
-        });
-        query = { ...query, ...normalizedFilters };
+        query = { ...query, ...this.normalizeFilters(tag.filters) };
       } else {
         query.tags = new mongoose.Types.ObjectId(tagId);
       }
@@ -123,18 +117,10 @@ export class LeadService {
 
     // virtual tag Logic 
     const dynamicTags = await Tag.find({ workspaceId, type: "DYNAMIC" }).lean();
-    const tagMatchers = dynamicTags.map(tag => {
-      const normalizedFilters = { ...tag.filters };
-      ["city", "email", "source"].forEach(field => {
-        if (typeof normalizedFilters[field] === "string") {
-          normalizedFilters[field] = normalizedFilters[field].toLowerCase();
-        }
-      });
-      return {
-        tag,
-        matches: sift(normalizedFilters)
-      };
-    });
+    const tagMatchers = dynamicTags.map(tag => ({
+      tag,
+      matches: sift(this.normalizeFilters(tag.filters))
+    }));
     
     return leads.map(lead => {
       const virtualTags = tagMatchers
@@ -187,13 +173,7 @@ export class LeadService {
     const virtualTags = dynamicTags
       .filter((tag) => {
         try {
-          const normalizedFilters = { ...tag.filters };
-          ["city", "email", "source"].forEach(field => {
-            if (typeof normalizedFilters[field] === "string") {
-              normalizedFilters[field] = normalizedFilters[field].toLowerCase();
-            }
-          });
-          return sift(normalizedFilters)(leadData);
+          return sift(this.normalizeFilters(tag.filters))(leadData);
         } catch (e) {
           return false;
         }
@@ -642,5 +622,45 @@ export class LeadService {
     }
 
     return await Lead.updateMany(query, { $pull: { tags: tagId } });
+  }
+
+  /**
+   * Recursively normalizes filter objects for case-insensitive matching.
+   * - Standardizes 'city', 'email', 'source' to lowercase (matches stored data).
+   * - Converts other string values to case-insensitive Regex objects.
+   */
+  static normalizeFilters(filters: any): any {
+    if (!filters) return {};
+    const normalized: any = {};
+
+    for (const key in filters) {
+      const value = filters[key];
+
+      // 1. Fast Lowercase Standardization for indexed "Big 3" fields
+      if (["city", "email", "source"].includes(key)) {
+        normalized[key] = typeof value === "string" ? value.toLowerCase() : value;
+        continue;
+      }
+
+      // 2. Auto-Regex for other string fields (Name, Status, Extra Fields)
+      if (typeof value === "string") {
+        normalized[key] = { $regex: `^${value}$`, $options: "i" };
+      } 
+      // 3. Recursive normalization for nested objects (extra_fields)
+      // We skip MongoDB operator objects (those starting with $)
+      else if (
+        value !== null && 
+        typeof value === "object" && 
+        !Array.isArray(value) && 
+        !Object.keys(value).some(k => k.startsWith('$'))
+      ) {
+        normalized[key] = this.normalizeFilters(value);
+      } 
+      // 4. Leave other types (numbers, booleans, arrays, operators) as is
+      else {
+        normalized[key] = value;
+      }
+    }
+    return normalized;
   }
 }

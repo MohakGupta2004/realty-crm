@@ -63,7 +63,7 @@ The `filters` object supports full MongoDB query syntax, allowing for extremely 
 { "city": "Vancouver", "status": "New Inquiry" }
 ```
 > [!TIP]
-> **Automated Case-Insensitivity**: Fields like `city`, `email`, and `source` are automatically lowercased. You can search for "Vancouver" or "vancouver" and it will match correctly.
+> **Total Case-Insensitivity**: The system automatically handles casing for **ALL** fields (Standard and Custom). You can create tags using any casing (e.g., "Vancouver", "vancouver", "VANCOUVER") and they will match correctly. No manual regex or lowercase formatting is required from your side.
 
 ### 2. Custom Data (`extra_fields`)
 Use **Dot Notation** to filter data stored inside the `extra_fields` object.
