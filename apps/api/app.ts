@@ -46,7 +46,18 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 app.use(morgan('dev'));
-app.use(express.json({ limit: "1mb" }));
+app.use((req, res, next) => {
+  const rawBodyRoutes = [
+    "/api/v1/payment/webhook",
+    "/api/v1/emailIntegration/webhook/resend-inbound",
+  ];
+
+  if (rawBodyRoutes.includes(req.originalUrl)) {
+    next();
+  } else {
+    express.json({ limit: "1mb" })(req, res, next);
+  }
+});
 app.use(cookieParser());
 
 // ── Health Check ──────────────────────────────────────────────────────

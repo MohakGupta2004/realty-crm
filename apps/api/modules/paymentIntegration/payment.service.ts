@@ -47,6 +47,13 @@ export class PaymentService {
                     planType: PlanName,
                     planId: Plan._id.toString(),
                },
+               subscription_data: {
+                    metadata: {
+                         userId: userId,
+                         planType: PlanName,
+                         planId: Plan._id.toString(),
+                    },
+               },
                success_url: `${FRONTEND_URL}/success`,
                cancel_url: `${FRONTEND_URL}/`,
           });
