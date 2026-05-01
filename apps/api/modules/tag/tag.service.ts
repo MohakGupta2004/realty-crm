@@ -101,6 +101,18 @@ export class TagService {
   }
 
   static async getFilterSchema(workspaceId: string) {
+    const members = await Membership.find({
+      workspace: workspaceId,
+      isRemoved: false,
+    }).populate("user", "name");
+
+    const agentOptions = members
+      .filter((m: any) => m.user)
+      .map((m: any) => ({
+        label: m.user.name,
+        value: m.user._id.toString(),
+      }));
+
     const standardFields = [
       { key: "name", label: "Lead Name", type: "text" },
       { key: "email", label: "Email Address", type: "text" },
@@ -109,6 +121,7 @@ export class TagService {
       { key: "source", label: "Lead Source", type: "text" },
       { key: "status", label: "Current Status", type: "text" },
       { key: "type", label: "Lead Type", type: "select", options: ["BUYER", "SELLER"] },
+      { key: "realtorId", label: "Agent", type: "select", options: agentOptions },
     ];
 
     // Discovery: Find all unique keys used in extra_fields for this workspace
