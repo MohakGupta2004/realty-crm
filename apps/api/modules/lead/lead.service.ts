@@ -624,11 +624,6 @@ export class LeadService {
     return await Lead.updateMany(query, { $pull: { tags: tagId } });
   }
 
-  /**
-   * Recursively normalizes filter objects for case-insensitive matching.
-   * - Standardizes 'city', 'email', 'source' to lowercase (matches stored data).
-   * - Converts other string values to case-insensitive Regex objects.
-   */
   static normalizeFilters(filters: any): any {
     if (!filters) return {};
     const normalized: any = {};
@@ -636,18 +631,14 @@ export class LeadService {
     for (const key in filters) {
       const value = filters[key];
 
-      // 1. Fast Lowercase Standardization for indexed "Big 3" fields
       if (["city", "email", "source"].includes(key)) {
         normalized[key] = typeof value === "string" ? value.toLowerCase() : value;
         continue;
       }
 
-      // 2. Auto-Regex for other string fields (Name, Status, Extra Fields)
       if (typeof value === "string") {
         normalized[key] = { $regex: `^${value}$`, $options: "i" };
-      } 
-      // 3. Recursive normalization for nested objects (extra_fields)
-      // We skip MongoDB operator objects (those starting with $)
+      }
       else if (
         value !== null && 
         typeof value === "object" && 
@@ -656,7 +647,6 @@ export class LeadService {
       ) {
         normalized[key] = this.normalizeFilters(value);
       } 
-      // 4. Leave other types (numbers, booleans, arrays, operators) as is
       else {
         normalized[key] = value;
       }
